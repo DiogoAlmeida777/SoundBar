@@ -53,6 +53,7 @@ from geometry.neonsign import NeonSignGeometry
 from geometry.stagewireframe import WireframeGeometry
 from geometry.sphere import SphereGeometry
 from geometry.stage import StageGeometry
+from geometry.lamp import LampGeometry
 
 class Example(Base):
     """
@@ -270,6 +271,40 @@ class Example(Base):
         self.scene.add(roundtable2)
         self.scene.add(roundtable3)
         self.scene.add(roundtable4)
+        #lamps
+        base_geometry, lamp_geometry, lampshade_geometry, switch_geometry = LampGeometry(1,1,1,my_obj_reader('objects/lamp.obj'))
+        base_material = PhongMaterial(
+            property_dict={"baseColor":[1.0, 0.8, 0.0]},
+            number_of_light_sources=self.light_number,
+            use_shadow=True
+        )
+        lamp_material = PhongMaterial(
+            property_dict={"baseColor":[1.0, 1.0, 0.8]},
+            number_of_light_sources=self.light_number,
+            use_shadow=True
+        )
+        lampshade_material = PhongMaterial(
+            property_dict={"baseColor":[0.3, 0.8, 0.4]},
+            number_of_light_sources=self.light_number,
+            use_shadow=True
+        )
+        switch_material  = PhongMaterial(
+            property_dict={"baseColor":[0.1, 0.1, 0]},
+            number_of_light_sources=self.light_number,
+            use_shadow=True
+        )
+        base = Mesh(geometry=base_geometry,material=base_material)
+        lamp = Mesh(geometry=lamp_geometry,material=lamp_material)
+        lampshade = Mesh(geometry=lampshade_geometry,material=lampshade_material)
+        switch = Mesh(geometry=switch_geometry,material=switch_material)
+        base.set_position([-5,0.9,-5])
+        lamp.local_matrix = base.local_matrix
+        lampshade.local_matrix = base.local_matrix
+        switch.local_matrix = base.local_matrix
+        self.scene.add(base)
+        self.scene.add(lamp)
+        self.scene.add(lampshade)
+        self.scene.add(switch)
         #mirrorball
         cable_geometry = CylinderGeometry(radius=0.02,height=1)
         cable_material  = PhongMaterial(
