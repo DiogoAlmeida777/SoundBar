@@ -5,9 +5,13 @@ from core_ext.texture import Texture
 from geometry.geometry import Geometry
 from material.lambert import LambertMaterial
 from material.surface import SurfaceMaterial  # fallback magenta
+from material.phong import PhongMaterial
 
-def BarGeometry(sx, sy, sz, obj_groups: List[Tuple[str, List, List]]):
-    bar = Object3D()
+def BarGeometry(sx, sy, sz, obj_groups: List[Tuple[str, List, List, List]]):
+    wall_geometry = None
+    floor_geometry = None
+    roof_geometry = None
+    door_geometry = None
 
     # Color textures
     texture_map = {
@@ -41,7 +45,8 @@ def BarGeometry(sx, sy, sz, obj_groups: List[Tuple[str, List, List]]):
 
         if material_name == "Wall":
             group_uvs = [[uv[1], 1.0 - uv[0]] for uv in group_uvs]
-
+            # Apply tiling for walls
+            group_uvs = [[uv[0] * 16.0, uv[1] * 16.0] for uv in group_uvs]
         elif material_name == "Door":
             u_coords = [uv[0] for uv in group_uvs]
             v_coords = [uv[1] for uv in group_uvs]
@@ -52,32 +57,22 @@ def BarGeometry(sx, sy, sz, obj_groups: List[Tuple[str, List, List]]):
                 (uv[0] - min_u) / (max_u - min_u) if (max_u - min_u) != 0 else 0.0,
                 1.0 - (uv[1] - min_v) / (max_v - min_v) if (max_v - min_v) != 0 else 0.0
             ] for uv in group_uvs]
-
-        tiling_factor = tiling_map.get(material_name, 1.0)
-        if tiling_factor != 1.0:
-            group_uvs = [[uv[0] * tiling_factor, uv[1] * tiling_factor] for uv in group_uvs]
+        elif material_name in ["Floor", "Roof"]:
+            # Apply tiling for floor and roof
+            group_uvs = [[uv[0] * 16.0, uv[1] * 16.0] for uv in group_uvs]
 
         geometry.add_attribute("vec2", "vertexUV", group_uvs)
-        geometry.add_attribute("vec3", "vertexNormal", group_normals)  # <-- ADD THIS
+        geometry.add_attribute("vec3", "vertexNormal", group_normals)
+        geometry.add_attribute("vec3", "faceNormal", group_normals)
         geometry.count_vertices()
 
-        if material_name in texture_map:
-            colorTex = texture_map[material_name]
-            bumpTex = bump_map.get(material_name, None)
+        if material_name == "Wall":
+            wall_geometry = geometry
+        elif material_name == "Floor":
+            floor_geometry = geometry
+        elif material_name == "Roof":
+            roof_geometry = geometry
+        elif material_name == "Door":
+            door_geometry = geometry
 
-            material = LambertMaterial(
-                texture=colorTex,
-                bump_texture=bumpTex,
-                property_dict={"bumpStrength": 3},
-                number_of_light_sources=3,
-                use_shadow=True
-            )
-        else:
-            print(f" Material '{material_name}' não encontrado no texture_map, usando cor magenta.")
-            material = SurfaceMaterial(property_dict={"baseColor": [1.0, 0.0, 1.0]})
-
-        mesh = Mesh(geometry, material)
-        bar.add(mesh)
-
-    bar.scale = [sx, sy, sz]
-    return bar
+    return wall_geometry, floor_geometry, roof_geometry, door_geometry
