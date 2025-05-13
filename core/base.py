@@ -10,7 +10,7 @@ class Base:
         # Initialize all pygame modules
         pygame.init()
         # Indicate rendering details
-        display_flags = pygame.DOUBLEBUF | pygame.OPENGL
+        display_flags = pygame.DOUBLEBUF | pygame.OPENGL 
         # Initialize buffers to perform antialiasing
         pygame.display.gl_set_attribute(pygame.GL_MULTISAMPLEBUFFERS, 1)
         pygame.display.gl_set_attribute(pygame.GL_MULTISAMPLESAMPLES, 4)
@@ -19,7 +19,7 @@ class Base:
         # Create and display the window
         self._screen = pygame.display.set_mode(screen_size, display_flags)
         # Set the text that appears in the title bar of the window
-        pygame.display.set_caption("Graphics Window")
+        pygame.display.set_caption("SoundBar")
         # Determine if main loop is active
         self._running = True
         # Manage time-related data and operations
@@ -74,7 +74,9 @@ class Base:
             # Display image on screen
             pygame.display.flip()
             # Pause if necessary to achieve 60 FPS
-            self._clock.tick(120)
+            self._clock.tick(0)
+            fps = self._clock.get_fps()
+            pygame.display.set_caption(f"SoundBar - FPS: {fps:.2f}")
         # Shutdown #
         pygame.quit()
         sys.exit()

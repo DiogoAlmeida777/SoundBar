@@ -24,7 +24,7 @@ class Shadow:
         
         if self._spotlight:
             # Para spotlight, configurar uma projeção perspectiva
-            self._camera.set_perspective(self._spotlight_fov, 1.0, 0.1, 100)
+            self._camera.set_perspective(self._spotlight_fov, 1.0, 0.1, 1000)
         else:
             # Para luz direcional, configurar uma projeção ortográfica
             # Usa camera_bounds da luz se disponível, senão usa o padrão

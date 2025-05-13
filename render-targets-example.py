@@ -82,6 +82,10 @@ class Example(Base):
     def update(self):
         self.sphere.rotate_y(0.01337)
         self.rig.update(self.input, self.delta_time)
+
+        player_position = self.camera.global_position
+        self.sky_camera.look_at(player_position)
+
         self.renderer.render(self.scene, self.sky_camera, render_target=self.render_target)
         self.renderer.render(self.scene, self.camera)
 

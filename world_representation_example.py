@@ -2,6 +2,8 @@ import numpy as np
 import math
 import pathlib
 import sys
+import copy
+
 
 #core imports
 from core.base import Base
@@ -29,6 +31,7 @@ from material.basic import BasicMaterial
 from material.emissive import EmissiveMaterial
 from material.transparent import TransparentMaterial
 from material.sprite import SpriteMaterial
+from material.line import LineMaterial
 #effects imports
 from effects.tintEffect import tintEffect
 from effects.pixelateEffect import pixelateEffect
@@ -56,6 +59,11 @@ from geometry.sphere import SphereGeometry
 from geometry.stage import StageGeometry
 from geometry.lamp import LampGeometry
 from geometry.jukebox import JukeboxGeometry
+from geometry.puffchair import PuffChairGeometry
+from geometry.spotlight import SpotlightGeometry
+from geometry.bottle import BottleGeometry
+from geometry.dancefloor import DanceFloorGeometry
+from geometry.geometry import Geometry
 
 class Example(Base):
     """
@@ -68,38 +76,41 @@ class Example(Base):
         self.renderer = Renderer( clear_color=[0,0,0])
         self.scene = Scene()
         self.camera = Camera(aspect_ratio=1920/1080)
+        self.rig = MovementRig()
+        self.rig.add(self.camera)
+        self.rig.set_position([11.5, 1.5, 14])
+        self.scene.add(self.rig)
 
+        self.glowScene = Scene()
 
         #Lights
         #AmbientLight
-        ambient_light = AmbientLight(color=[0.2, 0.2, 0.2])
+        ambient_light = AmbientLight(color=[0.1, 0.1, 0.1])
         self.scene.add(ambient_light)
-        #self.point_light = PointLight(color=[1, 1, 1], position=[10, 3, 1])
-        #self.scene.add(self.point_light)
         
         #SpotLights
         
-        flashlight = SpotLight(
+        self.flashlight = SpotLight(
             color=(1.0, 1.0, 1),      
-            position=(0, 2, 5),       
-            direction=(0, 0, 1),      
-            cutoff_angle=1,       
-            inner_cutoff_angle=1,
+            position=(0, 3.5, -11),       
+            direction=(0, 0.4, 1),      
+            cutoff_angle=20,       
+            inner_cutoff_angle=10,
             attenuation=(1.0, 0.01, 0.001)
         )       
-        self.scene.add(flashlight)
+        self.scene.add(self.flashlight)
         
         #DirectionalLight
-        """
+        
         directional_light = DirectionalLight(
             color=[0.1,0.1,0.1],
-            direction=[0,0,-2],
+            direction=[0,-1,-1],
         )
-        directional_light.set_position([0,2,5])
+        directional_light.set_position([0,3.5,-11])
         self.scene.add(directional_light)
         direct_helper = DirectionalLightHelper(directional_light)
-        directional_light.add(direct_helper)"""
-        self.renderer.enable_shadows(flashlight,resolution=(1024,1024))
+        directional_light.add(direct_helper)
+        self.renderer.enable_shadows(directional_light)
 
         #PointLights
         # Table positions
@@ -107,17 +118,17 @@ class Example(Base):
         for i in range(4):
             pointlight = PointLight(color=[0.8,1,0.8],position=(table_positions[i] + np.array([0,1.45,0])))
             self.scene.add(pointlight)
-            
-        self.light_number = 2 + 4
-        #self.scene.add(light_cone)
-        self.rig = MovementRig()
-        self.rig.add(self.camera)
-        self.rig.set_position([0.5, 1.3, 1])
-        self.scene.add(self.rig)
         
+        #ceiling lights
+        for i in range(5):
+            ceilinglight = PointLight(color=[0.5,0.5,0.2],position=[-9 - i,3.5,12])
+            self.scene.add(ceilinglight)
+            
+        self.light_number = 12
+
         #BarInterior
         wall_geometry, floor_geometry, roof_geometry, door_geometry = BarGeometry(1, 1, 1, my_obj_reader('objects/interior.obj'))
-        wall_material = PhongMaterial(
+        wall_material = LambertMaterial(
             texture=Texture("images/brick.jpg"),
             bump_texture=Texture("images/brick-normal-map.png"),
             property_dict={"bumpStrength": 3},
@@ -131,14 +142,14 @@ class Example(Base):
             number_of_light_sources=self.light_number,
             use_shadow=True
         )
-        roof_material = PhongMaterial(
+        roof_material = LambertMaterial(
             texture=Texture("images/tiles.jpg"),
             bump_texture=Texture("images/tiles_bump.png"),
             property_dict={"bumpStrength": 3},
             number_of_light_sources=self.light_number,
             use_shadow=True
         )
-        door_material = PhongMaterial(
+        door_material = LambertMaterial(
             texture=Texture("images/door_texture.jpg"),
             bump_texture=Texture("images/door_bump.png"),
             property_dict={"bumpStrength": 3},
@@ -155,13 +166,6 @@ class Example(Base):
         self.scene.add(door_mesh)
 
         ####Meshes#####
-
-        #Box
-        #box_geometry = BoxGeometry(width=1, height=1, depth=1)
-        #box_material = BasicMaterial()
-        #self.box = Mesh(geometry=box_geometry,material=box_material)
-        #self.box.translate(0, 1.5, 0) 
-        #self.scene.add(self.box)
 
         #Table
         table_geometry = WireframeGeometry(1,1,1,my_obj_reader("objects/squaretable.obj"))
@@ -184,7 +188,7 @@ class Example(Base):
         tv = Mesh(geometry=tv_geometry,material=tv_material)
         tv.set_position([14,1.1,-14])
         self.scene.add(tv)
-        geometry = RectangleGeometry(0.7,0.7)
+        sonic_geometry = RectangleGeometry(0.7,0.7)
         tile_set = Texture("images/sonic-spritesheet.jpg")
         sprite_material = SpriteMaterial(
             tile_set,
@@ -195,10 +199,30 @@ class Example(Base):
             }
         )
         self.tiles_per_second = 8
-        self.sprite = Mesh(geometry, sprite_material)
+        self.sprite = Mesh(sonic_geometry, sprite_material)
         self.sprite.set_position([14,1.1,-13.60])
         self.scene.add(self.sprite)
 
+        #ceiling_lights
+        circlelight_geo = SphereGeometry(radius=0.1)
+        circlelight_material = SurfaceMaterial(
+            property_dict={"baseColor":[1, 1, 0.7]},
+        )
+        lightcable_geo = CylinderGeometry(radius=0.02,height=1.4)
+        lightcable_material = LambertMaterial(
+            property_dict={"baseColor":[0, 0, 0]},
+            number_of_light_sources=self.light_number,
+            use_shadow=True
+        )
+        for i in range(5):
+            lightcable = Mesh(geometry=lightcable_geo,material=lightcable_material)
+            circlelight = Mesh(geometry=circlelight_geo, material=circlelight_material)
+            circlelight.set_position([-9 - i,3.5,12])
+            lightcable.set_position([-9 - i,4.3,12])
+            self.scene.add(circlelight)
+            self.scene.add(lightcable)
+            self.glowScene.add(circlelight)
+        
         #BarStand
         barstand_geometry = WireframeGeometry(1,1,1,my_obj_reader('objects/barstand.obj'))
         barstand_material = PhongMaterial(
@@ -223,6 +247,36 @@ class Example(Base):
         shelf.rotate_y(math.radians(180))
         shelf.set_position([-11.1,0,14.3])
         self.scene.add(shelf)
+        #bottles
+        bottle_geo, liquid_geo, cork_geo = BottleGeometry(1,1,1,my_obj_reader('objects/bottle.obj'))
+        bottle_material = PhongMaterial(
+            property_dict={"baseColor":[0, 0.7, 0]},
+            number_of_light_sources=self.light_number,
+            use_shadow=True,
+            opacity=0.2
+        )
+        liquid_material = TransparentMaterial(color=[0.3,0.3,0], opacity=0.5)
+        cork_material = LambertMaterial(
+            property_dict={"baseColor":[0.8, 0.8, 0.0]},
+            number_of_light_sources=self.light_number,
+            use_shadow=True
+        )
+        bottle_x=-9.5
+        bottle_y=1
+        for i in range(4):
+            for j in range(7):
+                bottle = Mesh(geometry=bottle_geo, material=bottle_material)
+                liquid = Mesh(geometry=liquid_geo, material=liquid_material)
+                cork = Mesh(geometry=cork_geo,material=cork_material)
+                bottle.set_position([bottle_x,bottle_y,14.5])
+                liquid.local_matrix = bottle.local_matrix
+                cork.local_matrix = bottle.local_matrix
+                self.scene.add(bottle)
+                self.scene.add(liquid)
+                self.scene.add(cork)
+                bottle_x -= 0.5
+            bottle_y += 0.7
+            bottle_x = -9.5
         #BarStool 
         barstool_geometry = WireframeGeometry(1,1,1,my_obj_reader('objects/barstool.obj'))
         barstool_material = PhongMaterial(
@@ -247,6 +301,25 @@ class Example(Base):
         wireframe = Mesh(geometry=wireframe_geometry,material=wireframe_material)
         wireframe.set_position([0,0,-10])
         self.scene.add(wireframe)
+
+        #Spotlight
+        support_geo, spotlight_geo, light_geo = SpotlightGeometry(1,1,1,my_obj_reader('objects/spotlight.obj'))
+        spotlight_material = PhongMaterial(
+            property_dict={"baseColor":[0.05, 0.05, 0.05]},
+            number_of_light_sources=self.light_number,
+            use_shadow=True,      
+        )
+        light_material = SurfaceMaterial(property_dict={"baseColor": [1.0, 1.0, 0.8]})
+        support = Mesh(geometry=support_geo,material=spotlight_material)
+        self.spotlight = Mesh(geometry=spotlight_geo,material=spotlight_material)
+        self.light = Mesh(geometry=light_geo,material=light_material)
+        support.rotate_y(math.radians(180))
+        support.set_position([0,3.9,-10])
+        self.spotlight.local_matrix = support.local_matrix
+        self.light.local_matrix = support.local_matrix
+        self.scene.add(support)
+        self.scene.add(self.spotlight)
+        self.scene.add(self.light)
 
         #Stage
         stage_geometry, frame_geometry, cloth_geometry1, cloth_geometry2, backstage_geometry = StageGeometry(1,1,1,my_obj_reader('objects/stage.obj'))
@@ -287,11 +360,16 @@ class Example(Base):
         self.scene.add(backstage)
 
         #PuffChair
-        chair_geometry = WireframeGeometry(1,1,1,my_obj_reader('objects/puffchair.obj'))
-        chair_material = LambertMaterial(
+        cushion_geo, chairbase_geo = PuffChairGeometry(1,1,1,my_obj_reader('objects/puffchair.obj'))
+        cushion_material = LambertMaterial(
             property_dict={"baseColor":[0.2, 0, 0]},
             number_of_light_sources=self.light_number,
-            use_shadow=True
+            use_shadow=True,      
+        )
+        chairbase_material = PhongMaterial(
+            property_dict={"baseColor":[0.05, 0.05, 0.05]},
+            number_of_light_sources=self.light_number,
+            use_shadow=True,      
         )
         # Place 4 chairs around each table
         for tx, ty, tz in table_positions:
@@ -300,10 +378,13 @@ class Example(Base):
                 angle_rad = math.radians(angle_deg)
                 dx = math.sin(angle_rad) * 1.5
                 dz = math.cos(angle_rad) * 1.5
-                chair = Mesh(geometry=chair_geometry, material=chair_material)
-                chair.set_position([tx + dx, 0, tz + dz])
-                chair.rotate_y(angle_rad + math.pi)
-                self.scene.add(chair)
+                cushion = Mesh(geometry=cushion_geo,material=cushion_material)
+                chairbase = Mesh(geometry=chairbase_geo, material=chairbase_material)
+                cushion.set_position([tx + dx, 0, tz + dz])
+                cushion.rotate_y(angle_rad + math.pi)
+                chairbase.local_matrix = cushion.local_matrix
+                self.scene.add(cushion)
+                self.scene.add(chairbase)
         #RoundTables
         roundtable_geometry = WireframeGeometry(1,1,1,my_obj_reader('objects/table.obj'))
         roundtable_material = LambertMaterial(
@@ -377,9 +458,26 @@ class Example(Base):
             number_of_light_sources=self.light_number,
             use_shadow=True
         )
-        globe = Mesh(geometry=mirrorball_geometry, material=mirrorball_material)
-        globe.set_position([0,4,0])
-        self.scene.add(globe)
+        self.mirrorball = Mesh(geometry=mirrorball_geometry, material=mirrorball_material)
+        self.mirrorball.set_position([0,4,0])
+        self.scene.add(self.mirrorball)
+
+        lightcone_geo = ConeGeometry(radius=0.1, height=5)
+        lightcone_material = TransparentMaterial(color=[1,1,1], opacity=0.2)
+        lightcone = Mesh(lightcone_geo,lightcone_material)
+        lightcone.set_position([0,2,0])
+        lightcone.set_direction([0,-1,1])
+        self.scene.add(lightcone)
+        #DanceFloor
+        color1_geo, color2_geo = DanceFloorGeometry(1,1,1,my_obj_reader('objects/dancefloor.obj'))
+        color1_material = SurfaceMaterial(property_dict={"baseColor": [0.6,0,0.6]})
+        color2_material = SurfaceMaterial(property_dict={"baseColor": [0.0, 0.6, 0.6]})
+        self.dancefloor_color1 = Mesh(geometry=color1_geo,material=color1_material)
+        self.dancefloor_color2 = Mesh(geometry=color2_geo,material=color2_material)
+        self.dancefloor_color1.set_position([0,0.1,0])
+        self.dancefloor_color2.set_position([0,0.1,0])
+        self.scene.add(self.dancefloor_color1)
+        self.scene.add(self.dancefloor_color2)
 
         #NeonSign
         blue_geo, yellow_geo, black_geo = NeonSignGeometry(1, 1, 1, my_obj_reader('objects/neonsign.obj'))
@@ -391,12 +489,20 @@ class Example(Base):
         blackSign = Mesh(black_geo,blacksign_material)
 
         self.blueSign.rotate_y(math.radians(90))
-        self.blueSign.set_position([-14.9, 2, 10])
+        self.blueSign.set_position([-14.9, 2, 5])
         self.yellowSign.local_matrix = self.blueSign.local_matrix
         blackSign.local_matrix = self.blueSign.local_matrix
         self.scene.add(self.blueSign)
         self.scene.add(self.yellowSign)
         self.scene.add(blackSign)
+
+        #ExitSign
+        exit_geo = WireframeGeometry(1,1,1,my_obj_reader('objects/exitsign.obj'))
+        exit_material = SurfaceMaterial(property_dict={"baseColor": [0.0, 1.0, 0]})
+        exitsign = Mesh(geometry=exit_geo,material=exit_material)
+        exitsign.rotate_y(math.radians(180))
+        exitsign.set_position([12.1,2.5,15])
+        self.scene.add(exitsign)
 
         #Jukebox
         wood_geo, neon_geo, metal_geo, red_geo, metalmesh_geo, selectcoin_geo, selectsong_geo, vinyl_geo, songs1_geo, songs2_geo, glass_geo = JukeboxGeometry(1,1,1,my_obj_reader('objects/jukebox.obj'))
@@ -405,10 +511,8 @@ class Example(Base):
             number_of_light_sources=self.light_number,
             use_shadow=True
         )
-        neon_material = PhongMaterial(
+        neon_material = SurfaceMaterial(
             property_dict={"baseColor": [0.0, 1.0, 1.0]},
-            number_of_light_sources=self.light_number,
-            use_shadow=True
         )
         metal_material = PhongMaterial(
             property_dict={"baseColor":[0.4, 0.4, 0.4]},
@@ -483,41 +587,48 @@ class Example(Base):
         self.scene.add(songlist2)
         self.scene.add(glass)
 
-        #self.postprocessor = Postprocessor(self.renderer,self.scene, self.camera)
+        #mirror
 
         #####glow scene#####
-        self.glowScene = Scene()
-        #Box
-        #cyanMaterial = SurfaceMaterial(property_dict={"baseColor": [0,1,1]})
-        #glow_box = Mesh(box_geometry,cyanMaterial)
-        #glow_box.local_matrix = self.box.local_matrix
-        #self.glowScene.add(glow_box)
+        
         
         #Jukebox Neon
-        self.neonJukeboxMaterial = SurfaceMaterial(property_dict={"baseColor": [0.0, 0.6, 0.6]})
-        self.neonJukebox = Mesh(neon_geo,self.neonJukeboxMaterial)
-        self.neonJukebox.local_matrix = self.neon.local_matrix
-        self.glowScene.add(self.neonJukebox)
+        
+        self.glowScene.add(self.neon)
         
         #Neon Sign
-        self.neonBlueSign = Mesh(blue_geo,self.bluesign_material)
-        self.neonYellowSign = Mesh(yellow_geo,self.yellowsign_material)
-        self.neonBlueSign.local_matrix = self.blueSign.local_matrix
-        self.neonYellowSign.local_matrix = self.yellowSign.local_matrix
-        self.current_glow = self.neonBlueSign
+        self.current_glow = self.blueSign
         self.glowScene.add(self.current_glow)
 
-        #Globe
-        glowMaterial = SurfaceMaterial(property_dict={"baseColor": [0.3, 0.3, 0.3]})
-        glowingMirrorBall = Mesh(mirrorball_geometry,glowMaterial)
-        glowingMirrorBall.local_matrix = globe.local_matrix
+        #exit sign
+        self.glowScene.add(exitsign)
 
+        #spotlight
+        self.glowScene.add(self.light)
+
+        #Globe
+        glowMaterial = SurfaceMaterial(property_dict={"baseColor": [0.4, 0.4, 0.4]})
+        glowingMirrorBall = Mesh(mirrorball_geometry,glowMaterial)
+        glowingMirrorBall.local_matrix = self.mirrorball.local_matrix
         self.glowScene.add(glowingMirrorBall)
+
+        #Mesh
+        sonicglow_material = SurfaceMaterial(property_dict={"baseColor": [0.2, 0.2, 0.2]})
+        sonic_glow = Mesh(sonic_geometry,sonicglow_material)
+        sonic_glow.local_matrix = self.sprite.local_matrix
+        self.glowScene.add(sonic_glow)
+
+        #DanceFloor
+        self.current_color = self.dancefloor_color1
+        self.glowScene.add(self.current_color)
+
+        #ceilinglights
+        self.glowScene.add(circlelight)
+
 
         #glow postprocessing
         glow_target = RenderTarget(resolution=[800, 600])
         self.glow_pass = Postprocessor(self.renderer, self.glowScene, self.camera, glow_target)
-        #self.postprocessor.add_effect(brightFilterEffect(2))
         self.glow_pass.add_effect( horizontalBlurEffect(texture_size=[800,600], blur_radius=50) )
         self.glow_pass.add_effect( verticalBlurEffect(texture_size=[800,600], blur_radius=50) )
 
@@ -528,17 +639,11 @@ class Example(Base):
             additiveBlendEffect(
                 blend_texture=glow_target.texture,
                 original_strength=1,
-                blend_strength=3
+                blend_strength=2
             )
         )
 
 
-
-        #mainScene = self.postprocessor.render_target_list[0].texture
-        #self.postprocessor.add_effect( additiveBlendEffect( blend_texture=mainScene, original_strength=2, blend_strength=1) )
-
-
-        
         ######HUD scene#######
         self.hudScene = Scene()
         self.hudCamera = Camera()
@@ -552,45 +657,51 @@ class Example(Base):
 
 
     def update(self):
-        # Check for quit event
-        #glow_strength = (math.sin(self.time * 2.0) + 1.0) / 2.0  # oscillates between 0 and 1
-        #animated_color = [glow_strength * 1.0, glow_strength * 0.5, 0.1]
-        #self.glow_material.uniform_dict["emissiveColor"].data = animated_color
+
+        speed = 0.5  # Speed of rotation
+        x = math.cos(self.time * speed)/2
+        y = math.sin(self.time * speed)/2
+        dir = [x, y, 1] 
+        self.flashlight.direction = dir
+        self.spotlight.set_direction(dir)
+        self.light.set_direction(dir)
+
         self.vinyl.rotate_y(0.01337)
+        self.mirrorball.rotate_y(0.02)
 
         rainbow_color = self.get_rainbow_color(self.time)
-        neon_material = PhongMaterial(
+        neon_material = SurfaceMaterial(
             property_dict={"baseColor": rainbow_color},
-            number_of_light_sources=self.light_number,
-            use_shadow=True
         )
         self.neon.material = neon_material
         
-        # Update glow scene neon color
-        self.neonJukeboxMaterial = SurfaceMaterial(property_dict={"baseColor": rainbow_color})
-        self.neonJukebox.material = self.neonJukeboxMaterial
         #NeonSign Update
         blink_interval = 1.0  # seconds
         blinking = int(self.time // blink_interval) % 2 == 0
         if blinking:
             # Blue ON, Yellow OFF
-            next_glow = self.neonBlueSign
-            self.bluesign_material = SurfaceMaterial(property_dict={"baseColor": [0,1,1]})
-            self.yellowsign_material = SurfaceMaterial(property_dict={"baseColor": [0,0,0]})
-            self.blueSign.material = self.bluesign_material
-            self.yellowSign.material = self.yellowsign_material
+            next_glow = self.blueSign
+            next_color = self.dancefloor_color1
+            self.dancefloor_color1.material.set_properties(property_dict={"baseColor": [0.6,0.3,0.6]})
+            self.dancefloor_color2.material.set_properties(property_dict={"baseColor": [0.2,0.5,0.5]})
+            self.blueSign.material.set_properties(property_dict={"baseColor": [0,1,1]})
+            self.yellowSign.material.set_properties(property_dict={"baseColor": [0,0,0]})
         else:
             # Yellow ON, Blue OFF
-            next_glow = self.neonYellowSign
-            self.bluesign_material = SurfaceMaterial(property_dict={"baseColor": [0,0,0]})
-            self.yellowsign_material = SurfaceMaterial(property_dict={"baseColor": [1,1,0]})
-            self.blueSign.material = self.bluesign_material
-            self.yellowSign.material = self.yellowsign_material
+            next_glow = self.yellowSign
+            next_color = self.dancefloor_color2
+            self.blueSign.material.set_properties(property_dict={"baseColor": [0,0,0]})
+            self.yellowSign.material.set_properties(property_dict={"baseColor": [1,1,0]})
+            self.dancefloor_color1.material.set_properties(property_dict={"baseColor": [0.5,0.2,0.5]})
+            self.dancefloor_color2.material.set_properties(property_dict={"baseColor": [0.3,0.6,0.6]})
 
         # Reset glow scene and add the correct glowing mesh
         self.glowScene.remove(self.current_glow)
+        self.glowScene.remove(self.current_color)
         self.glowScene.add(next_glow)
+        self.glowScene.add(next_color)
         self.current_glow = next_glow
+        self.current_color = next_color
 
         #Sonic Update
         tile_number = math.floor(self.time * self.tiles_per_second)
@@ -599,9 +710,10 @@ class Example(Base):
         #self.point_light.set_position([math.cos(0.5 * self.time) / 2, math.sin(0.5 * self.time) / 2, 1])
 
         self.rig.update(self.input, self.delta_time)
+
         self.glow_pass.render()
         self.combo_pass.render()
-        self.renderer.render( self.hudScene, self.hudCamera,clear_color=False)
+        #self.renderer.render( self.hudScene, self.hudCamera,clear_color=False)
     
 
     def get_rainbow_color(self, time):
@@ -610,12 +722,12 @@ class Example(Base):
         
         # Define rainbow colors in RGB
         colors = [
-            [1.0, 0.0, 0.0],  # Red
-            [1.0, 0.5, 0.0],  # Orange
-            [1.0, 1.0, 0.0],  # Yellow
-            [0.0, 1.0, 0.0],  # Green
-            [0.0, 0.0, 1.0],  # Blue
-            [0.5, 0.0, 1.0]   # Purple
+            [0.5, 0.0, 0.0],  # Red 
+            [0.5, 0.25, 0.0], # Orange 
+            [0.5, 0.5, 0.0],  # Yellow 
+            [0.0, 0.5, 0.0],  # Green 
+            [0.0, 0.0, 0.5],  # Blue 
+            [0.25, 0.0, 0.5]  # Purple 
         ]
         
         # Calculate which colors to interpolate between

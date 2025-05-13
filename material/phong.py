@@ -12,7 +12,8 @@ class PhongMaterial(LightedMaterial):
                  property_dict=None,
                  number_of_light_sources=1,
                  bump_texture=None,
-                 use_shadow=False):
+                 use_shadow=False,
+                 opacity=1.0):
         super().__init__(number_of_light_sources)
         self.add_uniform("vec3", "baseColor", [1.0, 1.0, 1.0])
 
@@ -24,6 +25,7 @@ class PhongMaterial(LightedMaterial):
         self.add_uniform("vec3", "viewPosition", [0, 0, 0])
         self.add_uniform("float", "specularStrength", 1.0)
         self.add_uniform("float", "shininess", 32.0)
+        self.add_uniform("float", "opacity", opacity)
 
         if bump_texture is None:
             self.add_uniform("bool", "useBumpTexture", False)
@@ -46,6 +48,8 @@ class PhongMaterial(LightedMaterial):
         self.setting_dict["wireframe"] = False
         # Set line thickness for wireframe rendering
         self.setting_dict["lineWidth"] = 1
+
+        self._opacity = opacity
         self.set_properties(property_dict)
 
     @property
@@ -112,6 +116,7 @@ class PhongMaterial(LightedMaterial):
             uniform vec3 viewPosition;
             uniform float specularStrength;
             uniform float shininess;
+            uniform float opacity;
 
             vec3 calculateLight(Light light, vec3 pointPosition, vec3 pointNormal)
             {
@@ -244,7 +249,7 @@ class PhongMaterial(LightedMaterial):
                     }
                 }  
                 
-                fragColor = color;
+                fragColor = vec4(color.rgb, opacity);
             }
         """
 
@@ -258,3 +263,10 @@ class PhongMaterial(LightedMaterial):
         else:
             GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_FILL)
         GL.glLineWidth(self.setting_dict["lineWidth"])
+        # Enable blending for transparency if opacity < 1.0
+        opacity = self.uniform_dict["opacity"].data
+        if opacity < 1.0:
+            GL.glEnable(GL.GL_BLEND)
+            GL.glBlendFunc(GL.GL_SRC_ALPHA, GL.GL_ONE_MINUS_SRC_ALPHA)
+        else:
+            GL.glDisable(GL.GL_BLEND)
