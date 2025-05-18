@@ -1,7 +1,7 @@
 # Blender 4.3.2 MTL File: 'squaretable.blend'
 # www.blender.org
 
-newmtl Material
+newmtl table
 Ns 250.000000
 Ka 1.000000 1.000000 1.000000
 Kd 0.800000 0.800000 0.800000

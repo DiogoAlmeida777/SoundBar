@@ -1,10 +1,8 @@
-from typing import List, Tuple
+from typing import List, Tuple, Dict
 from geometry.geometry import Geometry
 
-def BottleGeometry(sx, sy, sz, obj_groups: List[Tuple[str, List, List, List]]):
-    bottle_geometry = None
-    liquid_geometry = None
-    cork_geometry = None
+def CustomGeometry(sx, sy, sz, obj_groups: List[Tuple[str, List, List, List]]) -> Dict[str, Geometry]:
+    geometries = {}
 
     for material_name, group_vertices, group_uvs, group_normals in obj_groups:
         geometry = Geometry()
@@ -22,12 +20,7 @@ def BottleGeometry(sx, sy, sz, obj_groups: List[Tuple[str, List, List, List]]):
 
         geometry.count_vertices()
 
-        if material_name == "outer":
-            bottle_geometry = geometry
-        elif material_name == "inner":
-            liquid_geometry = geometry
-        elif material_name == "rolha":
-            cork_geometry = geometry
+        # Adiciona a geometry ao dicionário com a key sendo o nome do material
+        geometries[material_name] = geometry
 
-
-    return bottle_geometry, liquid_geometry, cork_geometry
+    return geometries

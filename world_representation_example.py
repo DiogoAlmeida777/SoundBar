@@ -49,20 +49,12 @@ from light.spotlight import SpotLight
 from light.directional_spotlight import DirectionalSpotLight
 #geometry imports
 from geometry.rectangle import RectangleGeometry
-from geometry.box import BoxGeometry  
 from geometry.cylinder import CylinderGeometry
 from geometry.cone import ConeGeometry
 from geometry.bar import BarGeometry
-from geometry.neonsign import NeonSignGeometry
-from geometry.stagewireframe import WireframeGeometry
 from geometry.sphere import SphereGeometry
-from geometry.stage import StageGeometry
-from geometry.lamp import LampGeometry
+from geometry.custom import CustomGeometry
 from geometry.jukebox import JukeboxGeometry
-from geometry.puffchair import PuffChairGeometry
-from geometry.spotlight import SpotlightGeometry
-from geometry.bottle import BottleGeometry
-from geometry.dancefloor import DanceFloorGeometry
 from geometry.geometry import Geometry
 
 class Example(Base):
@@ -95,7 +87,7 @@ class Example(Base):
             position=(0, 3.5, -11),       
             direction=(0, 0.4, 1),      
             cutoff_angle=20,       
-            inner_cutoff_angle=10,
+            inner_cutoff_angle=5,
             attenuation=(1.0, 0.01, 0.001)
         )       
         self.scene.add(self.flashlight)
@@ -131,7 +123,7 @@ class Example(Base):
         wall_material = LambertMaterial(
             texture=Texture("images/brick.jpg"),
             bump_texture=Texture("images/brick-normal-map.png"),
-            property_dict={"bumpStrength": 3},
+            property_dict={"bumpStrength": 1},
             number_of_light_sources=self.light_number,
             use_shadow=True
         )
@@ -168,8 +160,8 @@ class Example(Base):
         ####Meshes#####
 
         #Table
-        table_geometry = WireframeGeometry(1,1,1,my_obj_reader("objects/squaretable.obj"))
-        table_material = PhongMaterial(
+        table_geometry = CustomGeometry(1,1,1,my_obj_reader("objects/squaretable.obj")).get("table")
+        table_material = LambertMaterial(
             texture=Texture("images/darkwood.jpg"),
             bump_texture=Texture("images/TableWood_Normal.jpg"),
             number_of_light_sources=self.light_number,
@@ -179,7 +171,7 @@ class Example(Base):
         table.set_position([14,0,-14])
         self.scene.add(table)
         #Sonic
-        tv_geometry = WireframeGeometry(1,1,1,my_obj_reader("objects/television.obj"))
+        tv_geometry = CustomGeometry(1,1,1,my_obj_reader("objects/television.obj")).get("tv")
         tv_material = PhongMaterial(
             texture=Texture("images/tv_texture.png"),
             number_of_light_sources=self.light_number,
@@ -224,7 +216,7 @@ class Example(Base):
             self.glowScene.add(circlelight)
         
         #BarStand
-        barstand_geometry = WireframeGeometry(1,1,1,my_obj_reader('objects/barstand.obj'))
+        barstand_geometry = CustomGeometry(1,1,1,my_obj_reader('objects/barstand.obj')).get("barstand")
         barstand_material = PhongMaterial(
             texture=Texture("images/darkwood.jpg"),
             bump_texture=Texture("images/TableWood_Normal.jpg"),
@@ -236,7 +228,7 @@ class Example(Base):
         barstand.set_position([-10,0,12])
         self.scene.add(barstand)
         #Shelf
-        shelf_geometry = WireframeGeometry(1,1,1,my_obj_reader('objects/shelf.obj'))
+        shelf_geometry = CustomGeometry(1,1,1,my_obj_reader('objects/shelf.obj')).get("shelf")
         shelf_material = PhongMaterial(
             texture=Texture("images/darkwood.jpg"),
             bump_texture=Texture("images/TableWood_Normal.jpg"),
@@ -248,7 +240,10 @@ class Example(Base):
         shelf.set_position([-11.1,0,14.3])
         self.scene.add(shelf)
         #bottles
-        bottle_geo, liquid_geo, cork_geo = BottleGeometry(1,1,1,my_obj_reader('objects/bottle.obj'))
+        BeerGeometries = CustomGeometry(1,1,1,my_obj_reader('objects/bottle.obj'))
+        bottle_geo = BeerGeometries.get("outer")
+        liquid_geo = BeerGeometries.get("inner")
+        cork_geo = BeerGeometries.get("rolha")
         bottle_material = PhongMaterial(
             property_dict={"baseColor":[0, 0.7, 0]},
             number_of_light_sources=self.light_number,
@@ -278,7 +273,7 @@ class Example(Base):
             bottle_y += 0.7
             bottle_x = -9.5
         #BarStool 
-        barstool_geometry = WireframeGeometry(1,1,1,my_obj_reader('objects/barstool.obj'))
+        barstool_geometry = CustomGeometry(1,1,1,my_obj_reader('objects/barstool.obj')).get("Material.001")
         barstool_material = PhongMaterial(
             texture=Texture("images/barstooltexture.png"),
             number_of_light_sources=self.light_number,
@@ -292,7 +287,7 @@ class Example(Base):
             x_coord += 1
         
         #StageWireframe
-        wireframe_geometry = WireframeGeometry(1,1,1,my_obj_reader('objects/stage_wireframe.obj'))
+        wireframe_geometry = CustomGeometry(1,1,1,my_obj_reader('objects/stage_wireframe.obj')).get("Material")
         wireframe_material = PhongMaterial(
             property_dict={"baseColor":[0.1, 0.1, 0.1]},
             number_of_light_sources=self.light_number,
@@ -303,7 +298,10 @@ class Example(Base):
         self.scene.add(wireframe)
 
         #Spotlight
-        support_geo, spotlight_geo, light_geo = SpotlightGeometry(1,1,1,my_obj_reader('objects/spotlight.obj'))
+        SpotlightGeometries = CustomGeometry(1,1,1,my_obj_reader('objects/spotlight.obj'))
+        support_geo = SpotlightGeometries.get("spotlightsupport")
+        spotlight_geo = SpotlightGeometries.get("spotlight")
+        light_geo = SpotlightGeometries.get("light")
         spotlight_material = PhongMaterial(
             property_dict={"baseColor":[0.05, 0.05, 0.05]},
             number_of_light_sources=self.light_number,
@@ -322,7 +320,14 @@ class Example(Base):
         self.scene.add(self.light)
 
         #Stage
-        stage_geometry, frame_geometry, cloth_geometry1, cloth_geometry2, backstage_geometry = StageGeometry(1,1,1,my_obj_reader('objects/stage.obj'))
+        stagegeometries = CustomGeometry(1,1,1,my_obj_reader('objects/stage.obj'))
+        print(stagegeometries.keys())
+        stage_geometry = stagegeometries.get("stage")
+        
+        frame_geometry =  stagegeometries.get("frame")
+        cloth_geometry1 = stagegeometries.get("cloth01")
+        cloth_geometry2 = stagegeometries.get("cloth02")
+        backstage_geometry = stagegeometries.get("backstage")
         stage_material = PhongMaterial(
             texture=Texture("images/lightwood.jpg"),
             number_of_light_sources=self.light_number,
@@ -360,7 +365,9 @@ class Example(Base):
         self.scene.add(backstage)
 
         #PuffChair
-        cushion_geo, chairbase_geo = PuffChairGeometry(1,1,1,my_obj_reader('objects/puffchair.obj'))
+        PuffchairGeometries = CustomGeometry(1,1,1,my_obj_reader('objects/puffchair.obj'))
+        cushion_geo = PuffchairGeometries.get("chaircushion")
+        chairbase_geo = PuffchairGeometries.get("chairbase")
         cushion_material = LambertMaterial(
             property_dict={"baseColor":[0.2, 0, 0]},
             number_of_light_sources=self.light_number,
@@ -386,7 +393,7 @@ class Example(Base):
                 self.scene.add(cushion)
                 self.scene.add(chairbase)
         #RoundTables
-        roundtable_geometry = WireframeGeometry(1,1,1,my_obj_reader('objects/table.obj'))
+        roundtable_geometry = CustomGeometry(1,1,1,my_obj_reader('objects/table.obj')).get("table")
         roundtable_material = LambertMaterial(
             property_dict={"baseColor":[0.3, 0.2, 0]},
             number_of_light_sources=self.light_number,
@@ -405,7 +412,11 @@ class Example(Base):
         self.scene.add(roundtable3)
         self.scene.add(roundtable4)
         #lamps
-        base_geometry, lamp_geometry, lampshade_geometry, switch_geometry = LampGeometry(1,1,1,my_obj_reader('objects/lamp.obj'))
+        LampGeometries = CustomGeometry(1,1,1,my_obj_reader('objects/lamp.obj'))
+        base_geometry = LampGeometries.get("base")
+        lamp_geometry= LampGeometries.get("lamp")
+        lampshade_geometry= LampGeometries.get("lampshade")
+        switch_geometry= LampGeometries.get("switch")
         base_material = PhongMaterial(
             property_dict={"baseColor":[1.0, 0.8, 0.0]},
             number_of_light_sources=self.light_number,
@@ -469,7 +480,9 @@ class Example(Base):
         lightcone.set_direction([0,-1,1])
         self.scene.add(lightcone)
         #DanceFloor
-        color1_geo, color2_geo = DanceFloorGeometry(1,1,1,my_obj_reader('objects/dancefloor.obj'))
+        DancefloorGeometries = CustomGeometry(1,1,1,my_obj_reader('objects/dancefloor.obj'))
+        color1_geo = DancefloorGeometries.get("color1")
+        color2_geo = DancefloorGeometries.get("color2")
         color1_material = SurfaceMaterial(property_dict={"baseColor": [0.6,0,0.6]})
         color2_material = SurfaceMaterial(property_dict={"baseColor": [0.0, 0.6, 0.6]})
         self.dancefloor_color1 = Mesh(geometry=color1_geo,material=color1_material)
@@ -480,7 +493,10 @@ class Example(Base):
         self.scene.add(self.dancefloor_color2)
 
         #NeonSign
-        blue_geo, yellow_geo, black_geo = NeonSignGeometry(1, 1, 1, my_obj_reader('objects/neonsign.obj'))
+        NeonsignGeometries = CustomGeometry(1, 1, 1, my_obj_reader('objects/neonsign.obj'))
+        blue_geo = NeonsignGeometries.get("BlueText")
+        yellow_geo = NeonsignGeometries.get("YellowText")
+        black_geo = NeonsignGeometries.get("BlackText")
         self.bluesign_material = SurfaceMaterial(property_dict={"baseColor": [0.0, 1.0, 1.0]})
         self.yellowsign_material = SurfaceMaterial(property_dict={"baseColor": [1.0, 1.0, 0.0]})
         blacksign_material = SurfaceMaterial(property_dict={"baseColor": [0., 0, 0]})
@@ -497,7 +513,7 @@ class Example(Base):
         self.scene.add(blackSign)
 
         #ExitSign
-        exit_geo = WireframeGeometry(1,1,1,my_obj_reader('objects/exitsign.obj'))
+        exit_geo = CustomGeometry(1,1,1,my_obj_reader('objects/exitsign.obj')).get("text")
         exit_material = SurfaceMaterial(property_dict={"baseColor": [0.0, 1.0, 0]})
         exitsign = Mesh(geometry=exit_geo,material=exit_material)
         exitsign.rotate_y(math.radians(180))
