@@ -8,6 +8,7 @@ import copy
 #core imports
 from core.base import Base
 from core.obj_reader import my_obj_reader
+from core.matrix import Matrix
 #core_ext imports
 from core_ext.camera import Camera
 from core_ext.mesh import Mesh
@@ -63,24 +64,135 @@ class Example(Base):
     Add camera movement: WASDRF(move), QE(turn), TG(look).
     """
 
+    def __init__(self, screen_size):
+        super().__init__(screen_size)
+        # Initialize material and texture caches
+        self._material_cache = {}
+        self._texture_cache = {}
+        # Initialize instance data storage
+        self._instance_data = {}
+        # Initialize light culling
+        self._active_lights = set()
+        self._light_culling_distance = 20.0  # Maximum distance for light influence
+        
+    def _get_cached_texture(self, texture_path):
+        """Get a cached texture or create and cache a new one"""
+        if texture_path not in self._texture_cache:
+            self._texture_cache[texture_path] = Texture(texture_path)
+        return self._texture_cache[texture_path]
+        
+    def _get_cached_material(self, material_type, **kwargs):
+        """Get a cached material or create and cache a new one"""
+        # Create a unique key for the material based on its type and properties
+        key = f"{material_type}_{str(sorted(kwargs.items()))}"
+        if key not in self._material_cache:
+            if material_type == "LambertMaterial":
+                self._material_cache[key] = LambertMaterial(**kwargs)
+            elif material_type == "PhongMaterial":
+                self._material_cache[key] = PhongMaterial(**kwargs)
+            elif material_type == "SurfaceMaterial":
+                self._material_cache[key] = SurfaceMaterial(**kwargs)
+            elif material_type == "TransparentMaterial":
+                self._material_cache[key] = TransparentMaterial(**kwargs)
+            elif material_type == "SpriteMaterial":
+                self._material_cache[key] = SpriteMaterial(**kwargs)
+        return self._material_cache[key]
+
+    def _create_instanced_mesh(self, geometry, material, positions, rotations=None):
+        """Create a mesh with instanced geometry for multiple positions"""
+        if rotations is None:
+            rotations = [[0, 0, 0]] * len(positions)
+            
+        # Create a new geometry for the instanced mesh
+        instanced_geometry = Geometry()
+        
+        # Get the original vertex data
+        original_positions = geometry.attribute_dict["vertexPosition"].data
+        original_normals = geometry.attribute_dict["vertexNormal"].data
+        original_uvs = geometry.attribute_dict["vertexUV"].data
+        
+        # Create new vertex data for all instances
+        new_positions = []
+        new_normals = []
+        new_uvs = []
+        
+        # For each instance, transform the vertices
+        for pos, rot in zip(positions, rotations):
+            # Create rotation matrix
+            rot_x = rot[0]
+            rot_y = rot[1]
+            rot_z = rot[2]
+            rot_matrix = Matrix.make_rotation_x(rot_x) @ Matrix.make_rotation_y(rot_y) @ Matrix.make_rotation_z(rot_z)
+            
+            # Transform each vertex
+            for vertex_pos, vertex_normal, vertex_uv in zip(original_positions, original_normals, original_uvs):
+                # Transform position
+                transformed_pos = list(rot_matrix @ np.array(vertex_pos + [1]))[:3]
+                transformed_pos = [p + offset for p, offset in zip(transformed_pos, pos)]
+                new_positions.append(transformed_pos)
+                
+                # Transform normal
+                transformed_normal = list(rot_matrix @ np.array(vertex_normal + [0]))[:3]
+                new_normals.append(transformed_normal)
+                
+                # UV coordinates remain unchanged
+                new_uvs.append(vertex_uv)
+        
+        # Add attributes to the new geometry
+        instanced_geometry.add_attribute("vec3", "vertexPosition", new_positions)
+        instanced_geometry.add_attribute("vec3", "vertexNormal", new_normals)
+        instanced_geometry.add_attribute("vec2", "vertexUV", new_uvs)
+        instanced_geometry.add_attribute("vec3", "faceNormal", new_normals)
+        
+        # Create and return the mesh
+        mesh = Mesh(instanced_geometry, material)
+        return mesh
+
+    def _cull_lights(self, camera_position):
+        """Update active lights based on camera position"""
+        self._active_lights.clear()
+        for light in self.dynamic_scene._children_list:
+            if isinstance(light, (PointLight, SpotLight, DirectionalLight)):
+                # For point and spot lights, check distance
+                if isinstance(light, (PointLight, SpotLight)):
+                    distance = np.linalg.norm(np.array(light.local_position) - np.array(camera_position))
+                    if distance <= self._light_culling_distance:
+                        self._active_lights.add(light)
+                # Directional lights are always active
+                elif isinstance(light, DirectionalLight):
+                    self._active_lights.add(light)
+                    
+    def _update_light_uniforms(self):
+        """Update material uniforms with only active lights"""
+        active_light_count = len(self._active_lights)
+        for material in self._material_cache.values():
+            if hasattr(material, 'number_of_light_sources'):
+                material.uniform_dict["numberOfLights"].data = active_light_count
+                
     def initialize(self):
         print("Initializing program...")
-        self.renderer = Renderer( clear_color=[0,0,0])
+        self.renderer = Renderer(clear_color=[0,0,0])
+        
+        # Create separate scenes for static and dynamic objects
+        self.static_scene = Scene()
+        self.dynamic_scene = Scene()
+        self.glow_scene = Scene()
+        
+        # Add scenes to main scene
         self.scene = Scene()
+        self.scene.add(self.static_scene)
+        self.scene.add(self.dynamic_scene)
+        
+        # Camera setup
         self.camera = Camera(aspect_ratio=1920/1080)
         self.rig = MovementRig()
         self.rig.add(self.camera)
         self.rig.set_position([11.5, 1.5, 14])
-        self.scene.add(self.rig)
-
-        self.glowScene = Scene()
-
-        #Lights
-        #AmbientLight
-        ambient_light = AmbientLight(color=[0.1, 0.1, 0.1])
-        self.scene.add(ambient_light)
+        self.dynamic_scene.add(self.rig)  # Camera is dynamic
         
-        #SpotLights
+        # Lights (dynamic since they move/change)
+        ambient_light = AmbientLight(color=[0.1, 0.1, 0.1])
+        self.dynamic_scene.add(ambient_light)
         
         self.flashlight = SpotLight(
             color=(1.0, 1.0, 1),      
@@ -90,7 +202,7 @@ class Example(Base):
             inner_cutoff_angle=5,
             attenuation=(1.0, 0.01, 0.001)
         )       
-        self.scene.add(self.flashlight)
+        self.dynamic_scene.add(self.flashlight)
         
         #DirectionalLight
         
@@ -99,7 +211,7 @@ class Example(Base):
             direction=[0,-1,-1],
         )
         directional_light.set_position([0,3.5,-11])
-        self.scene.add(directional_light)
+        self.dynamic_scene.add(directional_light)
         direct_helper = DirectionalLightHelper(directional_light)
         directional_light.add(direct_helper)
         self.renderer.enable_shadows(directional_light)
@@ -109,27 +221,29 @@ class Example(Base):
         table_positions = [[-5, 0, -5], [-5, 0, 5], [5, 0, -5], [5, 0, 5]]
         for i in range(4):
             pointlight = PointLight(color=[0.8,1,0.8],position=(table_positions[i] + np.array([0,1.45,0])))
-            self.scene.add(pointlight)
+            self.dynamic_scene.add(pointlight)
         
         #ceiling lights
         for i in range(5):
             ceilinglight = PointLight(color=[0.5,0.5,0.2],position=[-9 - i,3.5,12])
-            self.scene.add(ceilinglight)
+            self.dynamic_scene.add(ceilinglight)
             
         self.light_number = 12
 
         #BarInterior
         wall_geometry, floor_geometry, roof_geometry, door_geometry = BarGeometry(1, 1, 1, my_obj_reader('objects/interior.obj'))
-        wall_material = LambertMaterial(
-            texture=Texture("images/brick.jpg"),
-            bump_texture=Texture("images/brick-normal-map.png"),
+        wall_material = self._get_cached_material(
+            "LambertMaterial",
+            texture=self._get_cached_texture("images/brick.jpg"),
+            bump_texture=self._get_cached_texture("images/brick-normal-map.png"),
             property_dict={"bumpStrength": 1},
             number_of_light_sources=self.light_number,
             use_shadow=True
         )
-        floor_material = PhongMaterial(
-            texture=Texture("images/rubber_tiles.jpg"),
-            bump_texture=Texture("images/rubber_tiles_bump.png"),
+        floor_material = self._get_cached_material(
+            "PhongMaterial",
+            texture=self._get_cached_texture("images/rubber_tiles.jpg"),
+            bump_texture=self._get_cached_texture("images/rubber_tiles_bump.png"),
             property_dict={"bumpStrength": 3},
             number_of_light_sources=self.light_number,
             use_shadow=True
@@ -152,10 +266,10 @@ class Example(Base):
         floor_mesh = Mesh(floor_geometry, floor_material)
         roof_mesh = Mesh(roof_geometry, roof_material)
         door_mesh = Mesh(door_geometry, door_material)
-        self.scene.add(wall_mesh)
-        self.scene.add(floor_mesh)
-        self.scene.add(roof_mesh)
-        self.scene.add(door_mesh)
+        self.static_scene.add(wall_mesh)
+        self.static_scene.add(floor_mesh)
+        self.static_scene.add(roof_mesh)
+        self.static_scene.add(door_mesh)
 
         ####Meshes#####
 
@@ -169,7 +283,7 @@ class Example(Base):
         )
         table = Mesh(geometry=table_geometry,material=table_material)
         table.set_position([14,0,-14])
-        self.scene.add(table)
+        self.static_scene.add(table)
         #Sonic
         tv_geometry = CustomGeometry(1,1,1,my_obj_reader("objects/television.obj")).get("tv")
         tv_material = PhongMaterial(
@@ -179,7 +293,7 @@ class Example(Base):
         )
         tv = Mesh(geometry=tv_geometry,material=tv_material)
         tv.set_position([14,1.1,-14])
-        self.scene.add(tv)
+        self.static_scene.add(tv)
         sonic_geometry = RectangleGeometry(0.7,0.7)
         tile_set = Texture("images/sonic-spritesheet.jpg")
         sprite_material = SpriteMaterial(
@@ -193,7 +307,7 @@ class Example(Base):
         self.tiles_per_second = 8
         self.sprite = Mesh(sonic_geometry, sprite_material)
         self.sprite.set_position([14,1.1,-13.60])
-        self.scene.add(self.sprite)
+        self.static_scene.add(self.sprite)
 
         #ceiling_lights
         circlelight_geo = SphereGeometry(radius=0.1)
@@ -211,9 +325,9 @@ class Example(Base):
             circlelight = Mesh(geometry=circlelight_geo, material=circlelight_material)
             circlelight.set_position([-9 - i,3.5,12])
             lightcable.set_position([-9 - i,4.3,12])
-            self.scene.add(circlelight)
-            self.scene.add(lightcable)
-            self.glowScene.add(circlelight)
+            self.static_scene.add(circlelight)
+            self.static_scene.add(lightcable)
+            self.glow_scene.add(circlelight)
         
         #BarStand
         barstand_geometry = CustomGeometry(1,1,1,my_obj_reader('objects/barstand.obj')).get("barstand")
@@ -226,7 +340,7 @@ class Example(Base):
         barstand = Mesh(geometry=barstand_geometry,material=barstand_material)
         barstand.rotate_y(math.radians(90))
         barstand.set_position([-10,0,12])
-        self.scene.add(barstand)
+        self.static_scene.add(barstand)
         #Shelf
         shelf_geometry = CustomGeometry(1,1,1,my_obj_reader('objects/shelf.obj')).get("shelf")
         shelf_material = PhongMaterial(
@@ -238,7 +352,7 @@ class Example(Base):
         shelf = Mesh(geometry=shelf_geometry,material=shelf_material)
         shelf.rotate_y(math.radians(180))
         shelf.set_position([-11.1,0,14.3])
-        self.scene.add(shelf)
+        self.static_scene.add(shelf)
         #bottles
         BeerGeometries = CustomGeometry(1,1,1,my_obj_reader('objects/bottle.obj'))
         bottle_geo = BeerGeometries.get("outer")
@@ -256,22 +370,59 @@ class Example(Base):
             number_of_light_sources=self.light_number,
             use_shadow=True
         )
-        bottle_x=-9.5
-        bottle_y=1
+        bottle_positions = []
+        bottle_rotations = []
+        bottle_x = -9.5
+        bottle_y = 1
         for i in range(4):
             for j in range(7):
-                bottle = Mesh(geometry=bottle_geo, material=bottle_material)
-                liquid = Mesh(geometry=liquid_geo, material=liquid_material)
-                cork = Mesh(geometry=cork_geo,material=cork_material)
-                bottle.set_position([bottle_x,bottle_y,14.5])
-                liquid.local_matrix = bottle.local_matrix
-                cork.local_matrix = bottle.local_matrix
-                self.scene.add(bottle)
-                self.scene.add(liquid)
-                self.scene.add(cork)
+                bottle_positions.append([bottle_x, bottle_y, 14.5])
+                bottle_rotations.append([0, 0, 0])
                 bottle_x -= 0.5
             bottle_y += 0.7
             bottle_x = -9.5
+            
+        # Create instanced meshes for bottles
+        bottle_mesh = self._create_instanced_mesh(
+            bottle_geo,
+            self._get_cached_material(
+                "PhongMaterial",
+                property_dict={"baseColor":[0, 0.7, 0]},
+                number_of_light_sources=self.light_number,
+                use_shadow=True,
+                opacity=0.2
+            ),
+            bottle_positions,
+            bottle_rotations
+        )
+        self.static_scene.add(bottle_mesh)
+        
+        # Create instanced meshes for liquid and cork
+        liquid_mesh = self._create_instanced_mesh(
+            liquid_geo,
+            self._get_cached_material(
+                "TransparentMaterial",
+                color=[0.3,0.3,0],
+                opacity=0.5
+            ),
+            bottle_positions,
+            bottle_rotations
+        )
+        self.static_scene.add(liquid_mesh)
+        
+        cork_mesh = self._create_instanced_mesh(
+            cork_geo,
+            self._get_cached_material(
+                "LambertMaterial",
+                property_dict={"baseColor":[0.8, 0.8, 0.0]},
+                number_of_light_sources=self.light_number,
+                use_shadow=True
+            ),
+            bottle_positions,
+            bottle_rotations
+        )
+        self.static_scene.add(cork_mesh)
+
         #BarStool 
         barstool_geometry = CustomGeometry(1,1,1,my_obj_reader('objects/barstool.obj')).get("Material.001")
         barstool_material = PhongMaterial(
@@ -283,7 +434,7 @@ class Example(Base):
         for i in range(4):
             barstool = Mesh(geometry=barstool_geometry, material=barstool_material)
             barstool.set_position([-12.5 + x_coord,0,11])
-            self.scene.add(barstool)
+            self.static_scene.add(barstool)
             x_coord += 1
         
         #StageWireframe
@@ -295,7 +446,7 @@ class Example(Base):
         )
         wireframe = Mesh(geometry=wireframe_geometry,material=wireframe_material)
         wireframe.set_position([0,0,-10])
-        self.scene.add(wireframe)
+        self.static_scene.add(wireframe)
 
         #Spotlight
         SpotlightGeometries = CustomGeometry(1,1,1,my_obj_reader('objects/spotlight.obj'))
@@ -315,9 +466,9 @@ class Example(Base):
         support.set_position([0,3.9,-10])
         self.spotlight.local_matrix = support.local_matrix
         self.light.local_matrix = support.local_matrix
-        self.scene.add(support)
-        self.scene.add(self.spotlight)
-        self.scene.add(self.light)
+        self.static_scene.add(support)
+        self.static_scene.add(self.spotlight)
+        self.static_scene.add(self.light)
 
         #Stage
         stagegeometries = CustomGeometry(1,1,1,my_obj_reader('objects/stage.obj'))
@@ -335,7 +486,7 @@ class Example(Base):
         )
         stage = Mesh(geometry=stage_geometry,material=stage_material)
         stage.set_position([0,0,-11.5])
-        self.scene.add(stage)
+        self.static_scene.add(stage)
         frame_material = LambertMaterial(
             property_dict={"baseColor":[0.2, 0.1, 0]},
             number_of_light_sources=self.light_number,
@@ -343,7 +494,7 @@ class Example(Base):
         )
         frame = Mesh(geometry=frame_geometry,material=frame_material)
         frame.local_matrix = stage.local_matrix
-        self.scene.add(frame)
+        self.static_scene.add(frame)
         cloth_material = PhongMaterial(
             property_dict={"baseColor":[0.5, 0, 0]},
             number_of_light_sources=self.light_number,
@@ -351,10 +502,10 @@ class Example(Base):
         )
         cloth1 = Mesh(geometry=cloth_geometry1,material=cloth_material)
         cloth1.local_matrix = stage.local_matrix
-        self.scene.add(cloth1)
+        self.static_scene.add(cloth1)
         cloth2 = Mesh(geometry=cloth_geometry2,material=cloth_material)
         cloth2.local_matrix = stage.local_matrix
-        self.scene.add(cloth2)
+        self.static_scene.add(cloth2)
         backstage_material = PhongMaterial(
             property_dict={"baseColor": [0.8,0.8,0.6]},
             number_of_light_sources=self.light_number,
@@ -362,7 +513,7 @@ class Example(Base):
         )
         backstage = Mesh(geometry=backstage_geometry,material=backstage_material)
         backstage.local_matrix = stage.local_matrix
-        self.scene.add(backstage)
+        self.static_scene.add(backstage)
 
         #PuffChair
         PuffchairGeometries = CustomGeometry(1,1,1,my_obj_reader('objects/puffchair.obj'))
@@ -390,8 +541,8 @@ class Example(Base):
                 cushion.set_position([tx + dx, 0, tz + dz])
                 cushion.rotate_y(angle_rad + math.pi)
                 chairbase.local_matrix = cushion.local_matrix
-                self.scene.add(cushion)
-                self.scene.add(chairbase)
+                self.static_scene.add(cushion)
+                self.static_scene.add(chairbase)
         #RoundTables
         roundtable_geometry = CustomGeometry(1,1,1,my_obj_reader('objects/table.obj')).get("table")
         roundtable_material = LambertMaterial(
@@ -407,10 +558,10 @@ class Example(Base):
         roundtable3.set_position(table_positions[2])
         roundtable4 = Mesh(geometry=roundtable_geometry,material=roundtable_material)
         roundtable4.set_position(table_positions[3])
-        self.scene.add(roundtable1)
-        self.scene.add(roundtable2)
-        self.scene.add(roundtable3)
-        self.scene.add(roundtable4)
+        self.static_scene.add(roundtable1)
+        self.static_scene.add(roundtable2)
+        self.static_scene.add(roundtable3)
+        self.static_scene.add(roundtable4)
         #lamps
         LampGeometries = CustomGeometry(1,1,1,my_obj_reader('objects/lamp.obj'))
         base_geometry = LampGeometries.get("base")
@@ -447,10 +598,10 @@ class Example(Base):
             lamp.local_matrix = base.local_matrix
             lampshade.local_matrix = base.local_matrix
             switch.local_matrix = base.local_matrix
-            self.scene.add(base)
-            self.scene.add(lamp)
-            self.scene.add(lampshade)
-            self.scene.add(switch)
+            self.static_scene.add(base)
+            self.static_scene.add(lamp)
+            self.static_scene.add(lampshade)
+            self.static_scene.add(switch)
         #mirrorball
         cable_geometry = CylinderGeometry(radius=0.02,height=1)
         cable_material  = PhongMaterial(
@@ -460,7 +611,7 @@ class Example(Base):
         )
         cable = Mesh(cable_geometry,cable_material)
         cable.set_position([0,4.5,0])
-        self.scene.add(cable)
+        self.static_scene.add(cable)
         mirrorball_geometry = SphereGeometry(radius=0.5)
         mirrorball_material = PhongMaterial(
             texture=Texture("images/mirrorball.jpg"),
@@ -471,14 +622,14 @@ class Example(Base):
         )
         self.mirrorball = Mesh(geometry=mirrorball_geometry, material=mirrorball_material)
         self.mirrorball.set_position([0,4,0])
-        self.scene.add(self.mirrorball)
+        self.static_scene.add(self.mirrorball)
 
         lightcone_geo = ConeGeometry(radius=0.1, height=5)
         lightcone_material = TransparentMaterial(color=[1,1,1], opacity=0.2)
         lightcone = Mesh(lightcone_geo,lightcone_material)
         lightcone.set_position([0,2,0])
         lightcone.set_direction([0,-1,1])
-        self.scene.add(lightcone)
+        self.static_scene.add(lightcone)
         #DanceFloor
         DancefloorGeometries = CustomGeometry(1,1,1,my_obj_reader('objects/dancefloor.obj'))
         color1_geo = DancefloorGeometries.get("color1")
@@ -489,8 +640,8 @@ class Example(Base):
         self.dancefloor_color2 = Mesh(geometry=color2_geo,material=color2_material)
         self.dancefloor_color1.set_position([0,0.1,0])
         self.dancefloor_color2.set_position([0,0.1,0])
-        self.scene.add(self.dancefloor_color1)
-        self.scene.add(self.dancefloor_color2)
+        self.static_scene.add(self.dancefloor_color1)
+        self.static_scene.add(self.dancefloor_color2)
 
         #NeonSign
         NeonsignGeometries = CustomGeometry(1, 1, 1, my_obj_reader('objects/neonsign.obj'))
@@ -508,9 +659,9 @@ class Example(Base):
         self.blueSign.set_position([-14.9, 2, 5])
         self.yellowSign.local_matrix = self.blueSign.local_matrix
         blackSign.local_matrix = self.blueSign.local_matrix
-        self.scene.add(self.blueSign)
-        self.scene.add(self.yellowSign)
-        self.scene.add(blackSign)
+        self.static_scene.add(self.blueSign)
+        self.static_scene.add(self.yellowSign)
+        self.static_scene.add(blackSign)
 
         #ExitSign
         exit_geo = CustomGeometry(1,1,1,my_obj_reader('objects/exitsign.obj')).get("text")
@@ -518,7 +669,7 @@ class Example(Base):
         exitsign = Mesh(geometry=exit_geo,material=exit_material)
         exitsign.rotate_y(math.radians(180))
         exitsign.set_position([12.1,2.5,15])
-        self.scene.add(exitsign)
+        self.static_scene.add(exitsign)
 
         #Jukebox
         wood_geo, neon_geo, metal_geo, red_geo, metalmesh_geo, selectcoin_geo, selectsong_geo, vinyl_geo, songs1_geo, songs2_geo, glass_geo = JukeboxGeometry(1,1,1,my_obj_reader('objects/jukebox.obj'))
@@ -591,17 +742,17 @@ class Example(Base):
         songlist1.local_matrix = wood.local_matrix
         songlist2.local_matrix = wood.local_matrix
         glass.local_matrix = wood.local_matrix
-        self.scene.add(wood)
-        self.scene.add(self.neon)
-        self.scene.add(metal)
-        self.scene.add(red)
-        self.scene.add(metalmesh)
-        self.scene.add(selectcoin)
-        self.scene.add(selectsong)
-        self.scene.add(self.vinyl)
-        self.scene.add(songlist1)
-        self.scene.add(songlist2)
-        self.scene.add(glass)
+        self.static_scene.add(wood)
+        self.static_scene.add(self.neon)
+        self.static_scene.add(metal)
+        self.static_scene.add(red)
+        self.static_scene.add(metalmesh)
+        self.static_scene.add(selectcoin)
+        self.static_scene.add(selectsong)
+        self.static_scene.add(self.vinyl)
+        self.static_scene.add(songlist1)
+        self.static_scene.add(songlist2)
+        self.static_scene.add(glass)
 
         #mirror
 
@@ -610,43 +761,44 @@ class Example(Base):
         
         #Jukebox Neon
         
-        self.glowScene.add(self.neon)
+        self.glow_scene.add(self.neon)
         
         #Neon Sign
         self.current_glow = self.blueSign
-        self.glowScene.add(self.current_glow)
+        self.glow_scene.add(self.current_glow)
 
         #exit sign
-        self.glowScene.add(exitsign)
+        self.glow_scene.add(exitsign)
 
         #spotlight
-        self.glowScene.add(self.light)
+        self.glow_scene.add(self.light)
 
         #Globe
         glowMaterial = SurfaceMaterial(property_dict={"baseColor": [0.4, 0.4, 0.4]})
         glowingMirrorBall = Mesh(mirrorball_geometry,glowMaterial)
         glowingMirrorBall.local_matrix = self.mirrorball.local_matrix
-        self.glowScene.add(glowingMirrorBall)
+        self.glow_scene.add(glowingMirrorBall)
 
         #Mesh
         sonicglow_material = SurfaceMaterial(property_dict={"baseColor": [0.2, 0.2, 0.2]})
         sonic_glow = Mesh(sonic_geometry,sonicglow_material)
         sonic_glow.local_matrix = self.sprite.local_matrix
-        self.glowScene.add(sonic_glow)
+        self.glow_scene.add(sonic_glow)
 
         #DanceFloor
         self.current_color = self.dancefloor_color1
-        self.glowScene.add(self.current_color)
+        self.glow_scene.add(self.current_color)
 
         #ceilinglights
-        self.glowScene.add(circlelight)
+        self.glow_scene.add(circlelight)
 
 
         #glow postprocessing
-        glow_target = RenderTarget(resolution=[800, 600])
-        self.glow_pass = Postprocessor(self.renderer, self.glowScene, self.camera, glow_target)
-        self.glow_pass.add_effect( horizontalBlurEffect(texture_size=[800,600], blur_radius=50) )
-        self.glow_pass.add_effect( verticalBlurEffect(texture_size=[800,600], blur_radius=50) )
+        glow_target = RenderTarget(resolution=[400, 300])  # Reduced resolution for better performance
+        self.glow_pass = Postprocessor(self.renderer, self.glow_scene, self.camera, glow_target)
+        # Reduced blur radius for better performance
+        self.glow_pass.add_effect(horizontalBlurEffect(texture_size=[400,300], blur_radius=25))
+        self.glow_pass.add_effect(verticalBlurEffect(texture_size=[400,300], blur_radius=25))
 
 
         # combining results of glow effect with main scene
@@ -655,7 +807,7 @@ class Example(Base):
             additiveBlendEffect(
                 blend_texture=glow_target.texture,
                 original_strength=1,
-                blend_strength=2
+                blend_strength=1.5  # Reduced blend strength for better performance
             )
         )
 
@@ -673,15 +825,22 @@ class Example(Base):
 
 
     def update(self):
-
-        speed = 0.5  # Speed of rotation
+        # Update camera position for light culling
+        camera_position = self.camera.local_position  # Use local_position property instead of get_position
+        self._cull_lights(camera_position)
+        self._update_light_uniforms()
+        
+        # Update dynamic objects
+        speed = 0.5
         x = math.cos(self.time * speed)/2
         y = math.sin(self.time * speed)/2
         dir = [x, y, 1] 
-        self.flashlight.direction = dir
-        self.spotlight.set_direction(dir)
-        self.light.set_direction(dir)
-
+        
+        # Only update active lights
+        for light in self._active_lights:
+            if isinstance(light, SpotLight):
+                light.direction = dir
+                
         self.vinyl.rotate_y(0.01337)
         self.mirrorball.rotate_y(0.02)
 
@@ -712,10 +871,10 @@ class Example(Base):
             self.dancefloor_color2.material.set_properties(property_dict={"baseColor": [0.3,0.6,0.6]})
 
         # Reset glow scene and add the correct glowing mesh
-        self.glowScene.remove(self.current_glow)
-        self.glowScene.remove(self.current_color)
-        self.glowScene.add(next_glow)
-        self.glowScene.add(next_color)
+        self.glow_scene.remove(self.current_glow)
+        self.glow_scene.remove(self.current_color)
+        self.glow_scene.add(next_glow)
+        self.glow_scene.add(next_color)
         self.current_glow = next_glow
         self.current_color = next_color
 
