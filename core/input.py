@@ -14,13 +14,11 @@ class Input(object):
         self.key_pressed_list = []
         self.key_up_list = []
 
-         # Mouse movement
+        # Mouse movement
         self._mouse_delta = (0, 0)
-        self._last_mouse_pos = pygame.mouse.get_pos()
-
-        # Lock and hide mouse for FPS-style control (optional)
-        pygame.event.set_grab(True)
+        self._mouse_grabbed = True
         pygame.mouse.set_visible(False)
+        pygame.event.set_grab(True)
     
     # functions to check key states
     def is_key_down(self, keyCode):
@@ -39,7 +37,12 @@ class Input(object):
         self.key_down_list = []
         self.key_up_list = []
 
-        self._mouse_delta = pygame.mouse.get_rel()
+        # Get relative mouse movement
+        if self._mouse_grabbed:
+            self._mouse_delta = pygame.mouse.get_rel()
+        else:
+            self._mouse_delta = (0, 0)
+
         # Iterate to detect changes since last check
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -51,7 +54,9 @@ class Input(object):
                 self.key_down_list.append(key_name)
                 self.key_pressed_list.append(key_name)
                 if key_name == "escape":
-                    self.quit = True
+                    self._mouse_grabbed = not self._mouse_grabbed
+                    pygame.event.set_grab(self._mouse_grabbed)
+                    pygame.mouse.set_visible(not self._mouse_grabbed)
             if event.type == pygame.KEYUP:
                 key_name = pygame.key.name(event.key)
                 self.key_pressed_list.remove(key_name)

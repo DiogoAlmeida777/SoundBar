@@ -24,7 +24,7 @@ class MovementRig(Object3D):
         
         # Yaw and pitch tracking
         self._pitch = 0.0
-        self._pitch_limit = math.radians(89.9)
+        self._pitch_limit = math.radians(89.9)  # Allow full rotation
 
         # Customizable key mappings.
         # Defaults: W, A, S, D, R, F (move), Q, E (turn), T, G (look)

@@ -22,7 +22,7 @@ class colorReduceEffect(Material):
         void main()
         {
 
-            vec4 color = texture2D(textureSampler, UV);
+            vec4 color = texture(textureSampler, UV);
             vec4 reduced = round(color * levels) / levels;
             reduced.a = 1.0;
             fragColor = reduced;

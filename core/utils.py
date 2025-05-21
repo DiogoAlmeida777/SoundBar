@@ -21,7 +21,7 @@ class Utils:
     def initialize_shader(shader_code, shader_type):
         """Cria o objeto shader, junta o código e compila."""
         # Specify required OpenGL/GLSL version
-        shader_code = '#version 130\n' + shader_code
+        shader_code = '#version 140\n' + shader_code
         # Create empty shader object and return reference value
         shader_ref = GL.glCreateShader(shader_type)
         # Stores the source code in the shader
