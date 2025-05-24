@@ -342,6 +342,32 @@ class Example(Base):
         barstand.rotate_y(math.radians(90))
         barstand.set_position([-10,0,12])
         self.static_scene.add(barstand)
+
+        #BarMan
+        barman_geometry = CustomGeometry(1,1,1,my_obj_reader('objects/barman.obj'))
+        body_geo = barman_geometry.get("Body")
+        head_geo = barman_geometry.get("Head")
+        body_material = LambertMaterial(
+            texture=Texture("images/body_texture.png"),
+            number_of_light_sources=self.light_number,
+            use_shadow=True
+        )
+        #body_material = TextureMaterial(Texture("images/body_texture.png"))
+        head_material = LambertMaterial(
+            texture=Texture("images/head_texture.png"),
+            number_of_light_sources=self.light_number,
+            use_shadow=True
+        )
+        #head_material = TextureMaterial(Texture("images/head_texture.png"))
+        self.head = Mesh(geometry=head_geo,material=head_material)
+        self.body = Mesh(geometry=body_geo,material=body_material)
+        self.head.set_position([-11,1.6,13])
+        self.head.rotate_y(math.radians(180))
+        self.body.local_matrix = self.head.local_matrix
+        self.dynamic_scene.add(self.head)
+        self.static_scene.add(self.body)
+
+
         #Shelf
         shelf_geometry = CustomGeometry(1,1,1,my_obj_reader('objects/shelf.obj')).get("shelf")
         shelf_material = PhongMaterial(
@@ -457,8 +483,8 @@ class Example(Base):
         self.spotlight.local_matrix = support.local_matrix
         self.light.local_matrix = support.local_matrix
         self.static_scene.add(support)
-        self.static_scene.add(self.spotlight)
-        self.static_scene.add(self.light)
+        self.dynamic_scene.add(self.spotlight)
+        self.dynamic_scene.add(self.light)
 
         #Stage
         stagegeometries = CustomGeometry(1,1,1,my_obj_reader('objects/stage.obj'))
@@ -772,7 +798,6 @@ class Example(Base):
         self.static_scene.add(songlist2)
         self.static_scene.add(glass)
 
-        #mirror
 
         #####glow scene#####
         
@@ -817,6 +842,7 @@ class Example(Base):
         # Reduced blur radius for better performance
         self.glow_pass.add_effect(horizontalBlurEffect(texture_size=[400,300], blur_radius=25))
         self.glow_pass.add_effect(verticalBlurEffect(texture_size=[400,300], blur_radius=25))
+        
 
 
         # combining results of glow effect with main scene
@@ -828,6 +854,7 @@ class Example(Base):
                 blend_strength=1.5  # Reduced blend strength for better performance
             )
         )
+        #self.combo_pass.add_effect(vignetteEffect())
 
 
         ######HUD scene#######
@@ -848,6 +875,9 @@ class Example(Base):
         self._cull_lights(camera_position)
         self._update_light_uniforms()
         
+
+        self.head.look_at(self.camera.global_position)
+        self.head.rotate_y(math.radians(180))
         # Update dynamic objects
         speed = 0.5
         x = math.cos(self.time * speed)/2
@@ -858,6 +888,8 @@ class Example(Base):
         for light in self._active_lights:
             if isinstance(light, SpotLight):
                 light.direction = dir
+                self.spotlight.set_direction(dir)
+                self.light.local_matrix = self.spotlight.local_matrix
                 
         self.vinyl.rotate_y(0.01337)
         self.mirrorball.rotate_y(0.02)
