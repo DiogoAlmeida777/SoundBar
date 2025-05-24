@@ -1,9 +1,12 @@
+import os
+
 import numpy as np
 import math
 import pathlib
 import sys
 import copy
 
+import pygame
 
 #core imports
 from core.base import Base
@@ -67,14 +70,13 @@ class Example(Base):
     Add camera movement: WASDRF(move), QE(turn), TG(look).
     """
 
-    def __init__(self, screen_size, fullscreen=False):
-        super().__init__(screen_size, fullscreen)
-        # Initialize material and texture caches
+    def __init__(self, screen_size):
+        super().__init__(screen_size)
+        self.show_menu = True
+        self.screen_size = screen_size
         self._material_cache = {}
         self._texture_cache = {}
-        # Initialize instance data storage
         self._instance_data = {}
-        # Initialize light culling
         self._active_lights = set()
         self._light_culling_distance = 20.0  # Maximum distance for light influence
         # Add these lines after other initializations
@@ -86,6 +88,32 @@ class Example(Base):
         self.beer_animation_progress = 0.0  # Track animation progress (0 to 1)
         self.beer_animation_speed = 3.0  # Speed of the animation
         
+        self._light_culling_distance = 20.0
+        self.brightness = 2
+
+    def _get_cached_texture(self, texture_path):
+        """Get a cached texture or create and cache a new one"""
+        if texture_path not in self._texture_cache:
+            self._texture_cache[texture_path] = Texture(texture_path)
+        return self._texture_cache[texture_path]
+        
+    def _get_cached_material(self, material_type, **kwargs):
+        """Get a cached material or create and cache a new one"""
+        # Create a unique key for the material based on its type and properties
+        key = f"{material_type}_{str(sorted(kwargs.items()))}"
+        if key not in self._material_cache:
+            if material_type == "LambertMaterial":
+                self._material_cache[key] = LambertMaterial(**kwargs)
+            elif material_type == "PhongMaterial":
+                self._material_cache[key] = PhongMaterial(**kwargs)
+            elif material_type == "SurfaceMaterial":
+                self._material_cache[key] = SurfaceMaterial(**kwargs)
+            elif material_type == "TransparentMaterial":
+                self._material_cache[key] = TransparentMaterial(**kwargs)
+            elif material_type == "SpriteMaterial":
+                self._material_cache[key] = SpriteMaterial(**kwargs)
+        return self._material_cache[key]
+
     def _create_instanced_mesh(self, geometry, material, positions, rotations=None):
         """Create a mesh with instanced geometry for multiple positions"""
         if rotations is None:
@@ -204,6 +232,8 @@ class Example(Base):
         # Lights (dynamic since they move/change)
         ambient_light = AmbientLight(color=[0.1, 0.1, 0.1])
         self.dynamic_scene.add(ambient_light)
+
+
         
         self.flashlight = SpotLight(
             color=(1.0, 1.0, 1),      
@@ -864,22 +894,30 @@ class Example(Base):
         self.combo_pass.add_effect(
             additiveBlendEffect(
                 blend_texture=glow_target.texture,
-                original_strength=1,
-                blend_strength=1.5  # Reduced blend strength for better performance
+                original_strength=self.brightness,
+                blend_strength=1.5
             )
         )
         #self.combo_pass.add_effect(vignetteEffect())
 
+        self.brightness_effect = additiveBlendEffect(
+            blend_texture=glow_target.texture,
+            original_strength=self.brightness,
+            blend_strength=1.5
+        )
+        self.combo_pass = Postprocessor(self.renderer, self.scene, self.camera)
+        self.combo_pass.add_effect(self.brightness_effect)
 
-        ######HUD scene#######
+        # HUD Scene
+        self.show_menu = True
+        self.menu_state = "main"
+        pygame.mouse.set_visible(True)
         self.hudScene = Scene()
         self.hudCamera = Camera()
-        self.hudCamera.set_orthographic(0,800,0,600,1,-1)
-        labelGeo1 = RectangleGeometry(width=600,height=80,position=[0,600],alignment=[0,1])
-        labelMat1 = TextureMaterial (Texture("images/Bar Simulator.png"))
-        label1 = Mesh(labelGeo1,labelMat1)
-        self.hudScene.add(label1)
-
+        #labelGeo1 = RectangleGeometry(width=600,height=80,position=[0,600],alignment=[0,1])
+        #labelMat1 = TextureMaterial (Texture("images/Bar Simulator.png"))
+        #label1 = Mesh(labelGeo1,labelMat1)
+        #self.hudScene.add(label1)
 
         BEER_MATERIAL = PhongMaterial(
             property_dict={"baseColor":[0, 0.7, 0]},
@@ -890,8 +928,165 @@ class Example(Base):
         self.BEER = Mesh(geometry=bottle_geo, material=BEER_MATERIAL)
         self.dynamic_scene.add(self.BEER)
         
+        width, height = self.screen_size
+        self.hudCamera.set_orthographic(0, width, 0, height, 1, -1)
 
+        # Background (GIF frame)
+        menu_bg = RectangleGeometry(width=width, height=height, position=[width / 2, height / 2], alignment=[0.5, 0.5])
+        bg_texture = Texture("images/bar-background-menu.gif")
+        menu_bg_mesh = Mesh(menu_bg, TextureMaterial(bg_texture))
+        menu_bg_mesh.set_position([0, 0, 0.1])
+        self.hudScene.add(menu_bg_mesh)
 
+        # Title
+        title_geo = RectangleGeometry(
+            width=width * 0.6,
+            height=height * 0.15,
+            position=[width / 2, height - 80],
+            alignment=[0.5, 1]
+        )
+        title_mat = TextureMaterial(Texture("images/title.png"))
+        title_mesh = Mesh(title_geo, title_mat)
+        self.hudScene.add(title_mesh)
+
+        # Buttons
+        self.menu_buttons = []
+
+        button_width = width * 0.325
+        button_height = height * 0.1
+        center_x = width / 2
+        button_specs = [
+            ("Start Game", "start", [center_x, height * 0.6], "start_game"),
+            ("Settings", "settings", [center_x, height * 0.45], "open_settings"),
+            ("Exit", "exit", [center_x, height * 0.3], "exit_game"),
+        ]
+
+        self.settings_buttons = []
+
+        settings_specs = [
+            ("camerasensitivity", "camerasensitivity", [center_x, height * 0.6], "camerasensitivity"),
+            ("Brightness", "Brightness", [center_x, height * 0.45], "Brightness"),
+            ("resetsettings", "resetsettings", [center_x, height * 0.3], "resetsettings"),
+            ("back", "back", [center_x, height * 0.15], "back"),
+        ]
+
+        self.sensitivity_buttons = []
+
+        sensitivity_specs = [
+            ("slow", "slow", [center_x, height * 0.6], "slow"),
+            ("normal", "normal", [center_x, height * 0.45], "normal"),
+            ("fast", "fast", [center_x, height * 0.3], "fast"),
+            ("back", "back", [center_x, height * 0.15], "back2"),
+        ]
+
+        self.brightness_buttons = []
+
+        brightness_specs = [
+            ("Dark", "Dark", [center_x, height * 0.6], "Dark"),
+            ("Normal", "Normal", [center_x, height * 0.45], "Normal"),
+            ("Bright", "Bright", [center_x, height * 0.3], "Bright"),
+            ("back", "back", [center_x, height * 0.15], "back3"),
+        ]
+
+        for label, base_name, position, action in settings_specs:
+            self.create_menu_button(base_name, position, action, self.settings_buttons, add_to_scene=False)
+
+        for label, base_name, position, action in sensitivity_specs:
+            self.create_menu_button(base_name, position, action, self.sensitivity_buttons, add_to_scene=False)
+
+        for label, base_name, position, action in brightness_specs:
+            self.create_menu_button(base_name, position, action, self.brightness_buttons, add_to_scene=False)
+
+        for label, base_name, position, action in button_specs:
+            self.create_menu_button(base_name, position, action, self.menu_buttons, add_to_scene=True)
+
+        import os
+
+        # === Load GIF background frames ===
+        self.bg_textures = []
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        frame_folder = os.path.join(script_dir, "images", "gif_frames")
+        frame_files = sorted([f for f in os.listdir(frame_folder) if f.endswith(".png")])
+
+        for frame_file in frame_files:
+            texture = Texture(os.path.join(frame_folder, frame_file))
+            self.bg_textures.append(texture)
+
+        self.num_bg_frames = len(self.bg_textures)
+        self.bg_frame_rate = 8
+        self.menu_bg_mesh = menu_bg_mesh
+
+    def handle_menu_change(self, new_state, new_button_list, old_button_list):
+        self.menu_state = new_state
+        for mesh, *_ in old_button_list:
+            self.hudScene.remove(mesh)
+        for mesh, tex_normal, tex_hover, action, position, width, height in new_button_list:
+            self.hudScene.add(mesh)
+
+    def handle_button_action(self, action):
+        try:
+            pygame.time.delay(100) # Para evitar double clicks
+            if action == "start_game":
+                self.show_menu = False
+                pygame.mouse.set_visible(False)
+            elif action == "open_settings":
+                self.handle_menu_change("settings", self.settings_buttons, self.menu_buttons)
+            elif action == "exit_game":
+                pygame.quit()
+                exit(0)
+            elif action == "back":
+                self.handle_menu_change("main", self.menu_buttons, self.settings_buttons)
+            elif action == "back2":
+                self.handle_menu_change("settings", self.settings_buttons, self.sensitivity_buttons)
+            elif action == "camerasensitivity":
+                self.handle_menu_change("sensitivity", self.sensitivity_buttons, self.settings_buttons)
+            elif action == "slow":
+                self.input.set_mouse_sensitivity(0.1)
+                self.show_menu = False
+            elif action == "normal":
+                self.input.set_mouse_sensitivity(0.5)
+                self.show_menu = False
+            elif action == "fast":
+                self.input.set_mouse_sensitivity(1.0)
+                self.show_menu = False
+            elif action == "Brightness":
+                self.handle_menu_change("brightness", self.brightness_buttons, self.settings_buttons)
+            elif action == "Dark":
+                self.brightness = 1
+                self.show_menu = False
+            elif action == "Normal":
+                self.brightness = 2
+                self.show_menu = False
+            elif action == "Bright":
+                self.brightness = 3
+                self.show_menu = False
+            elif action == "back3":
+                self.handle_menu_change("settings", self.settings_buttons, self.brightness_buttons)
+            elif action == "resetsettings":
+                self.input.set_mouse_sensitivity(0.5)
+                self.brightness = 2
+                self.show_menu = False
+
+            elif action == "resetsettings":
+                print("Repor definições (placeholder)")
+        except Exception as e:
+            print(f"Error handling button action '{action}': {e}")
+            return
+
+    def create_menu_button(self, base_name, position, action, button_list, add_to_scene=True, folder="images/buttons"):
+        width = self.screen_size[0] * 0.325
+        height = self.screen_size[1] * 0.1
+
+        geo = RectangleGeometry(width=width, height=height, position=position, alignment=[0.5, 0.5])
+        tex_normal = Texture(f"{folder}/{base_name}.png")
+        tex_hover = Texture(f"{folder}/{base_name}_hover.png")
+        mat = TextureMaterial(tex_normal)
+        mesh = Mesh(geo, mat)
+
+        if add_to_scene:
+            self.hudScene.add(mesh)
+
+        button_list.append((mesh, tex_normal, tex_hover, action, position, width, height))
 
     def update(self):
         # Update camera position for light culling
@@ -932,6 +1127,66 @@ class Example(Base):
         tilt_direction[1] -= 2.5 * self.beer_animation_progress
         tilt_direction = tilt_direction / np.linalg.norm(tilt_direction)
         self.BEER.set_direction(tilt_direction)
+        self.brightness_effect.uniform_dict["originalStrength"].data = self.brightness
+        camera_position = self.camera.local_position
+        self._cull_lights(camera_position)
+        self._update_light_uniforms()
+
+        if self.input.is_key_down("escape"):
+            if self.show_menu:
+                if self.menu_state == "main":
+                    self.show_menu = False
+                    pygame.mouse.set_visible(False)
+                elif self.menu_state == "settings":
+                    self.handle_menu_change("main", self.menu_buttons, self.settings_buttons)
+                elif self.menu_state == "sensitivity":
+                    self.handle_menu_change("settings", self.settings_buttons, self.sensitivity_buttons)
+                elif self.menu_state == "brightness":
+                    self.handle_menu_change("settings", self.settings_buttons, self.brightness_buttons)
+            else:
+                self.show_menu = not self.show_menu
+                pygame.mouse.set_visible(self.show_menu)
+
+        #Menu
+        if self.show_menu:
+            mx, my = pygame.mouse.get_pos()
+            my = self.screen_size[1] - my
+
+            if self.menu_state == "main":
+                button_list = self.menu_buttons
+            elif self.menu_state == "settings":
+                button_list = self.settings_buttons
+            elif self.menu_state == "sensitivity":
+                button_list = self.sensitivity_buttons
+            elif self.menu_state == "brightness":
+                button_list = self.brightness_buttons
+            else:
+                button_list = []
+
+            for mesh, tex_normal, tex_hover, action, position, width, height in button_list:
+                center_x, center_y = position
+
+                left = center_x - width // 2
+                right = center_x + width // 2
+                top = center_y - height // 2
+                bottom = center_y + height // 2
+
+                hovered = left <= mx <= right and top <= my <= bottom
+
+                if hovered:
+                    mesh.material = TextureMaterial(tex_hover)
+                    if self.input.is_mouse_button_pressed(0):
+                        self.handle_button_action(action)
+                else:
+                    mesh.material = TextureMaterial(tex_normal)
+
+            frame_index = int(self.time * self.bg_frame_rate) % self.num_bg_frames
+            self.menu_bg_mesh.material = TextureMaterial(self.bg_textures[frame_index])
+            self.renderer.render(self.hudScene, self.hudCamera, clear_color=False)
+            return
+        else:
+            pygame.mouse.set_visible(False)
+
 
         # Update dynamic objects
         speed = 0.5
@@ -1022,13 +1277,11 @@ class Example(Base):
             color1[2] + (color2[2] - color1[2]) * factor
         ]
 
-# Instantiate this class and run the program
-# Para executar em janela:
-# Example(screen_size=[1500, 800]).run()
 
-# Para executar em tela cheia:
-# Example(screen_size=[1500, 800], fullscreen=True).run()
 
-# Executar em tela cheia por padrão (descomente a linha desejada):
-Example(screen_size=[1500, 800], fullscreen=True).run()  # Tela cheia
-# Example(screen_size=[1500, 800]).run()  # Janela
+
+def run_example(resolution=(1920, 1080)):
+    Example(screen_size=resolution).run()
+
+if __name__ == "__main__":
+    run_example()
