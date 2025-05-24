@@ -6,11 +6,19 @@ from core.utils import Utils
 
 
 class Base:
-    def __init__(self, screen_size=(512, 512)):
+    def __init__(self, screen_size=(512, 512), fullscreen=False):
         # Initialize all pygame modules
         pygame.init()
         # Indicate rendering details
         display_flags = pygame.DOUBLEBUF | pygame.OPENGL
+        
+        # Add fullscreen flag if requested
+        if fullscreen:
+            display_flags |= pygame.FULLSCREEN
+            # Get the native screen resolution for fullscreen
+            info = pygame.display.Info()
+            screen_size = (info.current_w, info.current_h)
+            
         pygame.display.gl_set_attribute(pygame.GL_MULTISAMPLEBUFFERS, 1)
         pygame.display.gl_set_attribute(pygame.GL_MULTISAMPLESAMPLES, 4)
         pygame.display.gl_set_attribute(pygame.GL_ACCELERATED_VISUAL,1)
@@ -20,6 +28,8 @@ class Base:
         self._screen = pygame.display.set_mode(screen_size, display_flags)
         # Set the text that appears in the title bar of the window
         pygame.display.set_caption("SoundBar")
+        # Store fullscreen state
+        self._fullscreen = fullscreen
         # Determine if main loop is active
         self._running = True
         # Manage time-related data and operations
@@ -55,6 +65,26 @@ class Base:
         """ Implement by extending class """
         pass
 
+    def toggle_fullscreen(self):
+        """Toggle between fullscreen and windowed mode"""
+        self._fullscreen = not self._fullscreen
+        
+        if self._fullscreen:
+            # Switch to fullscreen
+            info = pygame.display.Info()
+            self._screen = pygame.display.set_mode(
+                (info.current_w, info.current_h), 
+                pygame.DOUBLEBUF | pygame.OPENGL | pygame.FULLSCREEN
+            )
+        else:
+            # Switch to windowed mode
+            self._screen = pygame.display.set_mode(
+                (1500, 800), 
+                pygame.DOUBLEBUF | pygame.OPENGL
+            )
+        
+        pygame.display.set_caption("SoundBar")
+
     def run(self):
         # Startup #
         self.initialize()
@@ -64,6 +94,14 @@ class Base:
             self._input.update()
             if self._input.quit:
                 self._running = False
+                
+            # Check for fullscreen toggle (F11, Alt+Enter, or 0 key)
+            if (self._input.is_key_down("f11") or 
+                (self._input.is_key_pressed("return") and 
+                 (self._input.is_key_pressed("left alt") or self._input.is_key_pressed("right alt"))) or
+                self._input.is_key_down("0")):
+                self.toggle_fullscreen()
+                
             # seconds since iteration of run loop
             self._delta_time = self._clock.get_time() / 1000
             # Increment time application has been running

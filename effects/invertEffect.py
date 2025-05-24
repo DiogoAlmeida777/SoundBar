@@ -21,7 +21,7 @@ class invertEffect(Material):
         void main()
         {
 
-            vec4 color = texture2D(textureSampler, UV);
+            vec4 color = texture(textureSampler, UV);
             vec4 invert = vec4(1 - color.r, 1 - color.g, 1 - color.b, 1);
             fragColor = invert;
         }

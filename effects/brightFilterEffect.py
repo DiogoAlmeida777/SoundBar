@@ -21,7 +21,7 @@ class brightFilterEffect(Material):
         void main()
         {
 
-            vec4 color = texture2D(textureSampler, UV);
+            vec4 color = texture(textureSampler, UV);
             if(color.r + color.g + color.b < threshold)
                 discard;
             fragColor = color;

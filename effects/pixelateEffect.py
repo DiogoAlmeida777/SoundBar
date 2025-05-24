@@ -25,7 +25,7 @@ class pixelateEffect(Material):
 
             vec2 factor = resolution / pixelSize;
             vec2 newUV = floor( UV * factor ) / factor;
-            vec4 color = texture2D(textureSampler, newUV);
+            vec4 color = texture(textureSampler, newUV);
             fragColor = color;
         }
         """
