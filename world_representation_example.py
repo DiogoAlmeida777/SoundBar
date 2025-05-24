@@ -59,6 +59,8 @@ from geometry.custom import CustomGeometry
 from geometry.jukebox import JukeboxGeometry
 from geometry.geometry import Geometry
 
+
+
 class Example(Base):
     """
     Render the axes and the rotated xy-grid.
@@ -75,6 +77,14 @@ class Example(Base):
         # Initialize light culling
         self._active_lights = set()
         self._light_culling_distance = 20.0  # Maximum distance for light influence
+        # Add these lines after other initializations
+        self.beer_tilted = False  # Track if beer is currently tilting
+        self.beer_can_tilt = True  # Track if beer can be tilted again
+        self.tilt_towards_player = False
+        self.current_angle = 0  # Track current rotation angle
+        self.move_angle = 10
+        self.beer_animation_progress = 0.0  # Track animation progress (0 to 1)
+        self.beer_animation_speed = 3.0  # Speed of the animation
         
     def _create_instanced_mesh(self, geometry, material, positions, rotations=None):
         """Create a mesh with instanced geometry for multiple positions"""
@@ -438,6 +448,10 @@ class Example(Base):
         cork_factory.add_instances(bottle_factory.positions)
         cork_mesh = cork_factory.build_mesh(self._create_instanced_mesh)
         self.static_scene.add(cork_mesh)
+
+
+        ################PLAYER BOTTLE#########################################################
+
 
         #BarStool 
         barstool_geometry = CustomGeometry(1,1,1,my_obj_reader('objects/barstool.obj')).get("Material.001")
@@ -865,6 +879,16 @@ class Example(Base):
         labelMat1 = TextureMaterial (Texture("images/Bar Simulator.png"))
         label1 = Mesh(labelGeo1,labelMat1)
         self.hudScene.add(label1)
+
+
+        BEER_MATERIAL = PhongMaterial(
+            property_dict={"baseColor":[0, 0.7, 0]},
+            number_of_light_sources=self.light_number,
+            use_shadow=True,
+            opacity=0.2
+        )
+        self.BEER = Mesh(geometry=bottle_geo, material=BEER_MATERIAL)
+        self.dynamic_scene.add(self.BEER)
         
 
 
@@ -878,6 +902,37 @@ class Example(Base):
 
         self.head.look_at(self.camera.global_position)
         self.head.rotate_y(math.radians(180))
+        
+        # Check for RMB click to toggle tilt
+         # Tilt 90 degrees
+        
+        view_matrix = self.camera.view_matrix
+        camera_direction = -view_matrix[2][:3]  # Get the Z axis and normalize
+        camera_direction = camera_direction / np.linalg.norm(camera_direction)
+
+        beer_offset = 0.7  # Distance in front of camera
+        base_position = np.array(self.camera.global_position) + (camera_direction * beer_offset) + np.array([0,-0.7,0])
+        raised_position = base_position + np.array([0, 0.4, 0])  # Raised position when tilted
+        
+        # Handle tilt input and animation
+        if self.input.is_mouse_button_pressed(2):  # While button is held
+            # Animate towards raised position
+            self.beer_animation_progress = min(1.0, self.beer_animation_progress + self.beer_animation_speed * self.delta_time)
+        else:  # When button is released
+            # Animate back to base position
+            self.beer_animation_progress = max(0.0, self.beer_animation_progress - self.beer_animation_speed * self.delta_time)
+        
+        # Interpolate between base and raised positions
+        current_position = base_position + (raised_position - base_position) * self.beer_animation_progress
+        self.BEER.set_position(current_position)
+        
+        # Calculate tilt direction based on camera position
+        tilt_direction = np.array(self.camera.global_position) - np.array(self.BEER.global_position)
+        # Add larger downward component to increase tilt, scaled by animation progress
+        tilt_direction[1] -= 2.5 * self.beer_animation_progress
+        tilt_direction = tilt_direction / np.linalg.norm(tilt_direction)
+        self.BEER.set_direction(tilt_direction)
+
         # Update dynamic objects
         speed = 0.5
         x = math.cos(self.time * speed)/2
@@ -934,7 +989,7 @@ class Example(Base):
 
         self.glow_pass.render()
         self.combo_pass.render()
-    
+        self.renderer.render(self.hudScene, self.hudCamera, clear_color=False)
 
     def get_rainbow_color(self, time):
         # Convert time to a value between 0 and 1

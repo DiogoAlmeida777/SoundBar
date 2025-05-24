@@ -56,7 +56,17 @@ class Input(object):
                 key_name = pygame.key.name(event.key)
                 self.key_pressed_list.remove(key_name)
                 self.key_up_list.append(key_name)
+            
 
     @property
     def mouse_delta(self):
         return self._mouse_delta
+    
+
+    def get_mouse_position(self):
+        """Get current mouse position"""
+        return pygame.mouse.get_pos()
+
+    def is_mouse_button_pressed(self, button):
+        """Check if a mouse button is pressed (0 = left, 1 = middle, 2 = right)"""
+        return pygame.mouse.get_pressed()[button]
