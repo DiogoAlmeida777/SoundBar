@@ -4,6 +4,7 @@ import pathlib
 import sys
 import copy
 
+import pygame
 
 #core imports
 from core.base import Base
@@ -66,6 +67,7 @@ class Example(Base):
 
     def __init__(self, screen_size):
         super().__init__(screen_size)
+        self.screen_size = screen_size
         # Initialize material and texture caches
         self._material_cache = {}
         self._texture_cache = {}
@@ -811,25 +813,112 @@ class Example(Base):
             )
         )
 
-
-        ######HUD scene#######
+        # HUD Scene
+        self.show_menu = True
+        pygame.mouse.set_visible(True)
         self.hudScene = Scene()
         self.hudCamera = Camera()
-        self.hudCamera.set_orthographic(0,800,0,600,1,-1)
-        labelGeo1 = RectangleGeometry(width=600,height=80,position=[0,600],alignment=[0,1])
-        labelMat1 = TextureMaterial (Texture("images/Bar Simulator.png"))
-        label1 = Mesh(labelGeo1,labelMat1)
-        self.hudScene.add(label1)
-        
+        width, height = self.screen_size
+        self.hudCamera.set_orthographic(0, width, 0, height, 1, -1)
 
+        # Background (GIF frame)
+        menu_bg = RectangleGeometry(width=width, height=height, position=[width / 2, height / 2], alignment=[0.5, 0.5])
+        bg_texture = Texture("images/bar-background-menu.gif")
+        menu_bg_mesh = Mesh(menu_bg, TextureMaterial(bg_texture))
+        menu_bg_mesh.set_position([0, 0, 0.1])
+        self.hudScene.add(menu_bg_mesh)
 
+        # Title
+        title_geo = RectangleGeometry(
+            width=width * 0.6,
+            height=height * 0.15,
+            position=[width / 2, height - 80],
+            alignment=[0.5, 1]
+        )
+        title_mat = TextureMaterial(Texture("images/title.png"))
+        title_mesh = Mesh(title_geo, title_mat)
+        self.hudScene.add(title_mesh)
+
+        # Buttons
+        self.menu_buttons = []
+
+        button_width = width * 0.325
+        button_height = height * 0.1
+        center_x = width / 2
+        button_specs = [
+            ("Start Game", "start", [center_x, height * 0.6], "start_game"),
+            ("Settings", "settings", [center_x, height * 0.45], "open_settings"),
+            ("Exit", "exit", [center_x, height * 0.3], "exit_game"),
+        ]
+
+        for label, base_name, position, action in button_specs:
+            geo = RectangleGeometry(width=button_width, height=button_height, position=position, alignment=[0.5, 0.5])
+            tex_normal = Texture(f"images/{base_name}.png")
+            tex_hover = Texture(f"images/{base_name}_hover.png")
+            mat = TextureMaterial(tex_normal)
+            mesh = Mesh(geo, mat)
+            self.hudScene.add(mesh)
+            self.menu_buttons.append((mesh, tex_normal, tex_hover, action, position, button_width, button_height))
+
+        import os
+
+        # === Load GIF background frames ===
+        self.bg_textures = []
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        frame_folder = os.path.join(script_dir, "images", "gif_frames")
+        frame_files = sorted([f for f in os.listdir(frame_folder) if f.endswith(".png")])
+
+        for frame_file in frame_files:
+            texture = Texture(os.path.join(frame_folder, frame_file))
+            self.bg_textures.append(texture)
+
+        self.num_bg_frames = len(self.bg_textures)
+        self.bg_frame_rate = 8
+        self.menu_bg_mesh = menu_bg_mesh
 
     def update(self):
-        # Update camera position for light culling
-        camera_position = self.camera.local_position  # Use local_position property instead of get_position
+        camera_position = self.camera.local_position
         self._cull_lights(camera_position)
         self._update_light_uniforms()
-        
+
+        #Menu
+        if self.show_menu:
+            mx, my = pygame.mouse.get_pos()
+            my = self.screen_size[1] - my
+            for mesh, tex_normal, tex_hover, action, position, width, height in self.menu_buttons:
+                center_x, center_y = position
+                width = 260
+                height = 60
+
+                left = center_x - width // 2
+                right = center_x + width // 2
+                top = center_y - height // 2
+                bottom = center_y + height // 2
+
+                hovered = left <= mx <= right and top <= my <= bottom
+
+                if hovered:
+                    mesh.material = TextureMaterial(tex_hover)
+                    if self.input.is_mouse_button_pressed(0):
+                        if action == "start_game":
+                            self.show_menu = False
+                            pygame.mouse.set_visible(False)
+                        elif action == "open_settings":
+                            print("vou fazer agora as settings")
+                        elif action == "exit_game":
+                            pygame.quit()
+                            exit(0)
+                else:
+                    mesh.material = TextureMaterial(tex_normal)
+
+            frame_index = int(self.time * self.bg_frame_rate) % self.num_bg_frames
+            self.menu_bg_mesh.material = TextureMaterial(self.bg_textures[frame_index])
+            self.renderer.render(self.hudScene, self.hudCamera, clear_color=False)
+            return
+        else:
+            pygame.mouse.set_visible(False)
+
+
         # Update dynamic objects
         speed = 0.5
         x = math.cos(self.time * speed)/2

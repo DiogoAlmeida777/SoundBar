@@ -33,6 +33,14 @@ class Input(object):
         """Check if key was released"""
         return keyCode in self.key_up_list
 
+    def get_mouse_position(self):
+        """Get current mouse position"""
+        return pygame.mouse.get_pos()
+
+    def is_mouse_button_pressed(self, button):
+        """Check if a mouse button is pressed (0 = left, 1 = middle, 2 = right)"""
+        return pygame.mouse.get_pressed()[button]
+
     def update(self):
         """Manage user input events"""
         # Reset discrete key states
