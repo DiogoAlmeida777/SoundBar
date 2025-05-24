@@ -16,7 +16,13 @@ class Input(object):
 
          # Mouse movement
         self._mouse_delta = (0, 0)
-        self._last_mouse_pos = pygame.mouse.get_pos()
+        
+        # Mouse wrapping settings
+        self._wrap_mouse = True
+        self._screen_size = pygame.display.get_surface().get_size()
+        self._center_x = self._screen_size[0] // 2
+        self._center_y = self._screen_size[1] // 2
+        self._mouse_was_repositioned = False  # Track when we reposition mouse
 
         # Lock and hide mouse for FPS-style control (optional)
         pygame.event.set_grab(True)
@@ -39,8 +45,36 @@ class Input(object):
         self.key_down_list = []
         self.key_up_list = []
 
-        self._mouse_delta = pygame.mouse.get_rel()
-        # Iterate to detect changes since last check
+        # FIRST: Capture mouse movement before any repositioning
+        raw_mouse_delta = pygame.mouse.get_rel()
+        
+        # If mouse was repositioned last frame, ignore this delta to prevent teleports
+        if self._mouse_was_repositioned:
+            self._mouse_delta = (0, 0)
+            self._mouse_was_repositioned = False
+        else:
+            self._mouse_delta = raw_mouse_delta
+        
+        # THEN: Handle mouse centering for continuous camera rotation
+        if self._wrap_mouse:
+            mouse_pos = pygame.mouse.get_pos()
+            x, y = mouse_pos
+            
+            # Check if mouse is at screen edges (use actual edges, not margin)
+            edge_margin = 5  # Very small margin, only trigger at actual edges
+            
+            should_recenter = (x <= edge_margin or x >= self._screen_size[0] - edge_margin or 
+                             y <= edge_margin or y >= self._screen_size[1] - edge_margin)
+            
+            if should_recenter:
+                # Move mouse to center of screen
+                pygame.mouse.set_pos(self._center_x, self._center_y)
+                # Set flag to ignore next frame's delta
+                self._mouse_was_repositioned = True
+                # Clear the rel movement buffer
+                pygame.mouse.get_rel()
+        
+        # Process pygame events
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.quit = True
@@ -56,6 +90,13 @@ class Input(object):
                 key_name = pygame.key.name(event.key)
                 self.key_pressed_list.remove(key_name)
                 self.key_up_list.append(key_name)
+
+    def update_screen_size(self):
+        """Update screen size for mouse wrapping (call when changing fullscreen mode)"""
+        self._screen_size = pygame.display.get_surface().get_size()
+        self._center_x = self._screen_size[0] // 2
+        self._center_y = self._screen_size[1] // 2
+        self._mouse_was_repositioned = False  # Reset flag when screen size changes
 
     @property
     def mouse_delta(self):

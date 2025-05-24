@@ -84,6 +84,8 @@ class Base:
             )
         
         pygame.display.set_caption("SoundBar")
+        # Update input system with new screen size
+        self._input.update_screen_size()
 
     def run(self):
         # Startup #
