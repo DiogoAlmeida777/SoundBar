@@ -13,6 +13,7 @@ class Input(object):
         self.key_down_list = []
         self.key_pressed_list = []
         self.key_up_list = []
+        self._sensitivity = 0.5
 
          # Mouse movement
         self._mouse_delta = (0, 0)
@@ -37,6 +38,10 @@ class Input(object):
         """Get current mouse position"""
         return pygame.mouse.get_pos()
 
+    def set_mouse_sensitivity(self, sensitivity):
+        """Define o multiplicador de sensibilidade do rato"""
+        self._sensitivity = sensitivity
+
     def is_mouse_button_pressed(self, button):
         """Check if a mouse button is pressed (0 = left, 1 = middle, 2 = right)"""
         return pygame.mouse.get_pressed()[button]
@@ -58,8 +63,6 @@ class Input(object):
                 key_name = pygame.key.name(event.key)
                 self.key_down_list.append(key_name)
                 self.key_pressed_list.append(key_name)
-                if key_name == "escape":
-                    self.quit = True
             if event.type == pygame.KEYUP:
                 key_name = pygame.key.name(event.key)
                 self.key_pressed_list.remove(key_name)
@@ -67,4 +70,5 @@ class Input(object):
 
     @property
     def mouse_delta(self):
-        return self._mouse_delta
+        dx, dy = self._mouse_delta
+        return (dx * self._sensitivity, dy * self._sensitivity)
