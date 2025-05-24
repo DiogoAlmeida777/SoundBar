@@ -997,8 +997,19 @@ class Example(Base):
         self._update_light_uniforms()
 
         if self.input.is_key_down("escape"):
-            self.show_menu = not self.show_menu
-            pygame.mouse.set_visible(self.show_menu)
+            if self.show_menu:
+                if self.menu_state == "main":
+                    self.show_menu = False
+                    pygame.mouse.set_visible(False)
+                elif self.menu_state == "settings":
+                    self.handle_menu_change("main", self.menu_buttons, self.settings_buttons)
+                elif self.menu_state == "sensitivity":
+                    self.handle_menu_change("settings", self.settings_buttons, self.sensitivity_buttons)
+                elif self.menu_state == "brightness":
+                    self.handle_menu_change("settings", self.settings_buttons, self.brightness_buttons)
+            else:
+                self.show_menu = not self.show_menu
+                pygame.mouse.set_visible(self.show_menu)
 
         #Menu
         if self.show_menu:
