@@ -1187,7 +1187,7 @@ class Example(Base):
         else:
             pygame.mouse.set_visible(False)
 
-
+        print(self.show_menu)
         # Update dynamic objects
         speed = 0.5
         x = math.cos(self.time * speed)/2
@@ -1244,7 +1244,7 @@ class Example(Base):
 
         self.glow_pass.render()
         self.combo_pass.render()
-        self.renderer.render(self.hudScene, self.hudCamera, clear_color=False)
+        #self.renderer.render(self.hudScene, self.hudCamera, clear_color=False)
 
     def get_rainbow_color(self, time):
         # Convert time to a value between 0 and 1
@@ -1276,7 +1276,6 @@ class Example(Base):
             color1[1] + (color2[1] - color1[1]) * factor,
             color1[2] + (color2[2] - color1[2]) * factor
         ]
-
 
 
 
