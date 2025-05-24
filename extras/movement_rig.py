@@ -50,8 +50,11 @@ class MovementRig(Object3D):
         for pos in table_positions:
             self._collision_manager.add_collision_object(pos, [2, 0, 2])  # Table size
             
-        # Add bar stand
-        self._collision_manager.add_collision_object([-10, 0, 12], [4, 0, 2])
+        # Add bar stand (much smaller and more precise collision boxes)
+        # Only block the actual solid parts of the bar
+        self._collision_manager.add_collision_object([-8.5, 0, 12], [1, 0, 1])  # Front corner of bar
+        self._collision_manager.add_collision_object([-11.5, 0, 12], [2.2, 0, 1])  # Back corner of bar
+        self._collision_manager.add_collision_object([-8.5, 0, 13.3], [0.5, 0, 1])  # Close the bar on the customer side
         
         # Add stage
         self._collision_manager.add_collision_object([0, 0, -11.5], [8, 0, 4])
@@ -59,21 +62,22 @@ class MovementRig(Object3D):
         # Add jukebox
         self._collision_manager.add_collision_object([0, 0, 14.5], [2, 0, 2])
         
-        # Add shelf
-        self._collision_manager.add_collision_object([-11.1, 0, 14.3], [2, 0, 1])
+        # Add shelf (expanded width to cover all bottle columns)
+        self._collision_manager.add_collision_object([-11.1, 0, 14.8], [3.5, 0, 0.8])  # Increased width to cover all bottles
         
-        # Add barstools
+        # Add barstools (reduced size to be more precise)
         for i in range(4):
-            self._collision_manager.add_collision_object([-12.5 + i, 0, 11], [0.5, 0, 0.5])
+            self._collision_manager.add_collision_object([-12.5 + i, 0, 11], [0.3, 0, 0.3])  # Smaller collision for barstools
             
         # Add TV and table
         self._collision_manager.add_collision_object([14, 0, -14], [2, 0, 2])
         
-        # Add dance floor
-        self._collision_manager.add_collision_object([0, 0, 0], [8, 0, 8])
+        # Remove dance floor collision - players should be able to walk on it!
+        # self._collision_manager.add_collision_object([0, 0, 0], [8, 0, 8])
         
-        # Add mirrorball
-        self._collision_manager.add_collision_object([0, 0, 0], [1, 0, 1])
+        # Add mirrorball (hanging above dance floor, not blocking ground movement)
+        # Position adjusted to be above the dance floor, not at ground level
+        # self._collision_manager.add_collision_object([0, 4, 0], [1, 0, 1])
         
         # Add neon sign
         self._collision_manager.add_collision_object([-14.9, 0, 5], [2, 0, 0.5])

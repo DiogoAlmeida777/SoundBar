@@ -67,8 +67,8 @@ class Example(Base):
     Add camera movement: WASDRF(move), QE(turn), TG(look).
     """
 
-    def __init__(self, screen_size):
-        super().__init__(screen_size)
+    def __init__(self, screen_size, fullscreen=False):
+        super().__init__(screen_size, fullscreen)
         # Initialize material and texture caches
         self._material_cache = {}
         self._texture_cache = {}
@@ -1023,4 +1023,12 @@ class Example(Base):
         ]
 
 # Instantiate this class and run the program
-Example(screen_size=[1500, 800]).run()
+# Para executar em janela:
+# Example(screen_size=[1500, 800]).run()
+
+# Para executar em tela cheia:
+# Example(screen_size=[1500, 800], fullscreen=True).run()
+
+# Executar em tela cheia por padrão (descomente a linha desejada):
+Example(screen_size=[1500, 800], fullscreen=True).run()  # Tela cheia
+# Example(screen_size=[1500, 800]).run()  # Janela

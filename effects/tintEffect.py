@@ -23,7 +23,7 @@ class tintEffect(Material):
         void main()
         {
 
-         vec4 color = texture2D(textureSampler, UV);
+         vec4 color = texture(textureSampler, UV);
          float gray = (color.r + color.g + color.b) / 3.0;
          fragColor = vec4(gray * tintColor, 1.0);
         }

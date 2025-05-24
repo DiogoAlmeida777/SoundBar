@@ -22,8 +22,8 @@ class additiveBlendEffect(Material):
         out vec4 fragColor;
         void main()
         {
-            vec4 originalColor = texture2D(textureSampler, UV);
-            vec4 blendColor = texture2D(blendTexture, UV);
+            vec4 originalColor = texture(textureSampler, UV);
+            vec4 blendColor = texture(blendTexture, UV);
             vec4 color = originalStrength * originalColor + blendStrength * blendColor;
             fragColor = color;
         }

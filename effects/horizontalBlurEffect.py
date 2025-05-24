@@ -27,7 +27,7 @@ class horizontalBlurEffect(Material):
             {
                 float weight = blurRadius - abs(offsetX) + 1;
                 vec2 offsetUV = vec2(offsetX, 0) * pixelToTextureCoords;
-                averageColor += texture2D(textureSampler, UV + offsetUV) * weight;
+                averageColor += texture(textureSampler, UV + offsetUV) * weight;
             }
             averageColor /= averageColor.a;
             fragColor = averageColor;

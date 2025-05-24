@@ -23,7 +23,7 @@ class vignetteEffect(Material):
 
         void main()
         {   
-            vec4 color = texture2D(textureSampler, UV);
+            vec4 color = texture(textureSampler, UV);
             // calculate position in clip space from UV coordinates
             vec2 position = 2 * UV - vec2(1,1);
             // calculate distance (d) from center, which affects brightness

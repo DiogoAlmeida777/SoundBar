@@ -20,7 +20,7 @@ class TemplateEffect(Material):
         void main()
         {
 
-        vec4 color = texture2D(textureSampler, UV);
+        vec4 color = texture(textureSampler, UV);
         fragColor = color;
         }
         """
