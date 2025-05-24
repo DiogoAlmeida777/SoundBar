@@ -401,7 +401,7 @@ class Example(Base):
         # Add bottle instances
         bottle_x = -9.5
         bottle_y = 1
-        for i in range(4):
+        for i in range(3):
             for j in range(7):
                 bottle_factory.add_instance([bottle_x, bottle_y, 14.5])
                 bottle_x -= 0.5
