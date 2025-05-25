@@ -3,6 +3,7 @@ import math
 import pathlib
 import sys
 import copy
+import pygame  # Add pygame import
 
 
 #core imports
@@ -24,6 +25,7 @@ from extras.movement_rig import MovementRig
 from extras.postprocessor import Postprocessor
 from extras.directional_light import DirectionalLightHelper
 from extras.point_light import PointLightHelper
+from extras.text_texture import TextTexture
 #material imports
 from material.surface import SurfaceMaterial
 from material.texture import TextureMaterial
@@ -67,6 +69,9 @@ class Example(Base):
 
     def __init__(self, screen_size):
         super().__init__(screen_size)
+        # Store screen size
+        self.screen_size = screen_size
+        
         # Initialize material and texture caches
         self._material_cache = {}
         self._texture_cache = {}
@@ -75,6 +80,15 @@ class Example(Base):
         # Initialize light culling
         self._active_lights = set()
         self._light_culling_distance = 20.0  # Maximum distance for light influence
+        
+        # Jukebox interaction variables
+        self.jukebox_position = [0, 0, 14.5]
+        self.jukebox_interaction_distance = 3.0  # Increased to 3.0 units
+        self.show_interaction_prompt = False
+        
+        # Initialize pygame font
+        pygame.font.init()
+        self.font = pygame.font.Font(None, 36)  # None uses default font, 36 is size
         
     def _create_instanced_mesh(self, geometry, material, positions, rotations=None):
         """Create a mesh with instanced geometry for multiple positions"""
@@ -190,6 +204,39 @@ class Example(Base):
         self.rig.add(self.camera)
         self.rig.set_position([11.5, 1.5, 14])
         self.dynamic_scene.add(self.rig)  # Camera is dynamic
+        
+        # HUD scene e camera
+        self.hudScene = Scene()
+        self.hudCamera = Camera()
+        self.hudCamera.set_orthographic(0, 800, 0, 600, 1, -1)
+        
+        # Texto de interação
+        self.interaction_text = TextTexture(
+            text="Pressiona E para interagir com a jukebox",
+            system_font_name="Arial",
+            font_size=24,
+            font_color=(255, 255, 255),
+            background_color=(0, 0, 0, 255),  # Fundo completamente opaco
+            transparent=False
+        )
+        
+        self.interaction_material = TextureMaterial(self.interaction_text)
+        self.interaction_geometry = RectangleGeometry(width=400, height=50)
+        self.interaction_mesh = Mesh(self.interaction_geometry, self.interaction_material)
+        self.interaction_mesh.set_position([400, 300, 0])  # Centro do ecrã
+        
+        # Label Bar Simulator
+        labelGeo1 = RectangleGeometry(width=600, height=80, position=[0,600], alignment=[0,1])
+        labelMat1 = TextureMaterial(Texture("images/Bar Simulator.png"))
+        label1 = Mesh(labelGeo1, labelMat1)
+        
+        # Adiciona ambos à mesma HUD scene
+        self.hudScene.add(self.interaction_mesh)  # Adiciona primeiro o interaction_mesh
+        self.hudScene.add(label1)  # Depois adiciona o label
+        
+        # Create HUD render target and postprocessor
+        self.hud_target = RenderTarget(resolution=[800, 600])
+        self.hud_pass = Postprocessor(self.renderer, self.hudScene, self.hudCamera, self.hud_target)
         
         # Lights (dynamic since they move/change)
         ambient_light = AmbientLight(color=[0.1, 0.1, 0.1])
@@ -829,24 +876,41 @@ class Example(Base):
             )
         )
 
-
-        ######HUD scene#######
-        self.hudScene = Scene()
-        self.hudCamera = Camera()
-        self.hudCamera.set_orthographic(0,800,0,600,1,-1)
-        labelGeo1 = RectangleGeometry(width=600,height=80,position=[0,600],alignment=[0,1])
-        labelMat1 = TextureMaterial (Texture("images/Bar Simulator.png"))
-        label1 = Mesh(labelGeo1,labelMat1)
-        self.hudScene.add(label1)
-        
-
-
+        # Compor HUD por cima da cena com glow
+        self.final_pass = Postprocessor(self.renderer, self.scene, self.camera)
+        self.final_pass.add_effect(
+            additiveBlendEffect(
+                blend_texture=self.hud_target.texture,
+                original_strength=1,
+                blend_strength=1
+            )
+        )
 
     def update(self):
         # Update camera position for light culling
         camera_position = self.camera.local_position
         self._cull_lights(camera_position)
         self._update_light_uniforms()
+        
+        # Get the actual player position from the rig
+        player_position = self.rig.local_position
+        
+        # Check distance to jukebox using player position
+        distance_to_jukebox = np.linalg.norm(np.array(player_position) - np.array(self.jukebox_position))
+        print(f"Distance to jukebox: {distance_to_jukebox}")  # Debug print
+        
+        # Handle jukebox interaction
+        self.show_interaction_prompt = distance_to_jukebox < self.jukebox_interaction_distance
+        print(f"Show interaction prompt: {self.show_interaction_prompt}")  # Debug print
+        print("Mesh no HUD:", self.interaction_mesh in self.hudScene._children_list)  # Debug print
+        
+        # Mostrar ou esconder a mensagem de interação dinamicamente
+        if self.show_interaction_prompt:
+            if self.interaction_mesh not in self.hudScene._children_list:
+                self.hudScene.add(self.interaction_mesh)
+        else:
+            if self.interaction_mesh in self.hudScene._children_list:
+                self.hudScene.remove(self.interaction_mesh)
         
         # Update dynamic objects
         speed = 0.5
@@ -900,9 +964,11 @@ class Example(Base):
 
         self.rig.update(self.input, self.delta_time)
 
+        # Render main scene and effects
         self.glow_pass.render()
         self.combo_pass.render()
-    
+        self.hud_pass.render()  # Renderiza para hud_target
+        self.final_pass.render()  # Compoe a HUD por cima
 
     def get_rainbow_color(self, time):
         # Convert time to a value between 0 and 1
