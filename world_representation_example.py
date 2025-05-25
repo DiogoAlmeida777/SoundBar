@@ -108,6 +108,18 @@ class Example(Base):
         # Add these lines after other initializations
         self.brightness = 2
 
+        # Add a flag to track if space was just pressed
+        self.space_was_pressed = False
+
+        # Add flags for bottle throwing
+        self.bottle_thrown = False
+        self.bottle_velocity = np.array([0.0, 0.0, 0.0])
+        self.bottle_gravity = -9.8  # Gravity constant
+        self.bottle_can_throw = False  # Flag to indicate if bottle can be thrown
+
+        # Add sound playing flags
+        self.gulping_sound_playing = False
+
     def _get_cached_texture(self, texture_path):
         """Get a cached texture or create and cache a new one"""
         if texture_path not in self._texture_cache:
@@ -441,8 +453,8 @@ class Example(Base):
         self.static_scene.add(shelf)
         #bottles
         BeerGeometries = CustomGeometry(1,1,1,my_obj_reader('objects/bottle.obj'))
-        self.bottle_geo = BeerGeometries.get("outer")  # Store as instance variable
-        liquid_geo = BeerGeometries.get("inner")
+        self.bottle_geo = BeerGeometries.get("outer")  # Store bottle geometry
+        self.liquid_geo = BeerGeometries.get("inner")  # Store liquid geometry
         cork_geo = BeerGeometries.get("rolha")
         
         # Store bottle factory and positions as instance variables
@@ -476,7 +488,7 @@ class Example(Base):
         
         # Create liquid instances and store as instance variable
         self.liquid_factory = InstancedObjectFactory(
-            liquid_geo,
+            self.liquid_geo,
             self._get_cached_material(
                 "TransparentMaterial",
                 color=[0.3,0.3,0],
@@ -940,14 +952,22 @@ class Example(Base):
         #self.hudScene.add(label1)
 
         
-        # Create player's BEER but don't add it to scene yet
+        # Create player's BEER components but don't add to scene yet
         BEER_MATERIAL = PhongMaterial(
             property_dict={"baseColor":[0, 0.7, 0]},
             number_of_light_sources=self.light_number,
             use_shadow=True,
             opacity=0.2
         )
+        LIQUID_MATERIAL = self._get_cached_material(
+            "TransparentMaterial",
+            color=[0.3,0.3,0],
+            opacity=0.5
+        )
+        
+        # Create both bottle and liquid meshes for player's BEER
         self.BEER = Mesh(geometry=self.bottle_geo, material=BEER_MATERIAL)
+        self.BEER_LIQUID = Mesh(geometry=self.liquid_geo, material=LIQUID_MATERIAL)  # Use the same liquid geometry as the shelf bottles
         # Don't add to scene yet since player starts without beer
         
         width, height = self.screen_size
@@ -1147,58 +1167,92 @@ class Example(Base):
 
         # Check for space key press to remove bottle
         if self.input.is_key_pressed("space"):
-            self.remove_bottle()
+            if not self.space_was_pressed and not self.hasBeer and not self.bottle_thrown:
+                self.remove_bottle()
+                self.space_was_pressed = True
+        else:
+            self.space_was_pressed = False
 
+        # Get camera direction for both beer holding and throwing
+        view_matrix = self.camera.view_matrix
+        camera_direction = -view_matrix[2][:3]
+        camera_direction = camera_direction / np.linalg.norm(camera_direction)
+        beer_offset = 0.7
+        base_position = np.array(self.camera.global_position) + (camera_direction * beer_offset) + np.array([0,-0.7,0])
+        raised_position = base_position + np.array([0, 0.4, 0])
+
+        # Handle beer drinking and holding
         if self.hasBeer:
-
-            # Check for RMB click to toggle tilt
-            # Tilt 90 degrees
-            
-            view_matrix = self.camera.view_matrix
-            camera_direction = -view_matrix[2][:3]  # Get the Z axis and normalize
-            camera_direction = camera_direction / np.linalg.norm(camera_direction)
-
-            beer_offset = 0.7  # Distance in front of camera
-            base_position = np.array(self.camera.global_position) + (camera_direction * beer_offset) + np.array([0,-0.7,0])
-            raised_position = base_position + np.array([0, 0.4, 0])  # Raised position when tilted
-            
             # Handle tilt input and animation
-            if self.input.is_mouse_button_pressed(2) and self.BEER_LEFT > 0:  # While button is held and beer not empty
-                # Animate towards raised position
+            if self.input.is_mouse_button_pressed(2) and self.BEER_LEFT > 0:
                 self.beer_animation_progress = min(1.0, self.beer_animation_progress + self.beer_animation_speed * self.delta_time)
                 if not self.gulping_sound_playing and self.beer_animation_progress > 0.2:
                     self.gulping_channel.play(Sound=self.gulp_sound, loops=-1)
                     self.gulping_sound_playing = True
-            else:  # When button is released or beer is empty
-                # Animate back to base position
+            else:
                 self.beer_animation_progress = max(0.0, self.beer_animation_progress - self.beer_animation_speed * self.delta_time)
                 if self.gulping_channel is not None:
                     self.gulping_channel.stop()
                     self.gulping_sound_playing = False
-            
-            # Interpolate between base and raised positions
-            current_position = base_position + (raised_position - base_position) * self.beer_animation_progress
-            self.BEER.set_position(current_position)
-            
-            # Calculate tilt direction based on camera position
-            tilt_direction = np.array(self.camera.global_position) - np.array(self.BEER.global_position)
-            # Add larger downward component to increase tilt, scaled by animation progress
-            tilt_direction[1] -= 2.5 * self.beer_animation_progress
-            tilt_direction = tilt_direction / np.linalg.norm(tilt_direction)
-            self.BEER.set_direction(tilt_direction)
 
-            # Update beer amount and drunkenness when drinking
-            if self.input.is_mouse_button_pressed(2) and self.BEER_LEFT > 0:  # While drinking and beer not empty
-                self.BEER_LEFT = max(0, self.BEER_LEFT - self.delta_time * 10)  # Decrease beer amount
-                self.DRUNKNESS = self.DRUNKNESS + self.delta_time * 5  # Increase drunkenness
-                # If beer becomes empty, stop the gulping sound
+            # Update beer amount and drunkenness
+            if self.input.is_mouse_button_pressed(2) and self.BEER_LEFT > 0:
+                self.BEER_LEFT = max(0, self.BEER_LEFT - self.delta_time * 10)
+                self.DRUNKNESS = self.DRUNKNESS + self.delta_time * 5
             elif self.BEER_LEFT <= 0:
                 if self.gulping_channel is not None:
                     self.gulping_channel.stop()
                     self.gulping_sound_playing = False
-                self.dynamic_scene.remove(self.BEER)
+                if self.BEER_LIQUID in self.dynamic_scene._children_list:
+                    self.dynamic_scene.remove(self.BEER_LIQUID)
+                    self.burp_channel.play(self.burp_sound)
+                self.bottle_can_throw = True
+                
+
+            # Handle bottle throwing when empty
+            if self.bottle_can_throw and self.input.is_mouse_button_pressed(0):
+                throw_strength = 15.0
+                self.bottle_velocity = camera_direction * throw_strength
+                self.bottle_thrown = True
+                self.bottle_can_throw = False
                 self.hasBeer = False
-                self.burp_channel.play(self.burp_sound)
+                
+
+            # Normal beer holding behavior
+            if not self.bottle_thrown:
+                current_position = base_position + (raised_position - base_position) * self.beer_animation_progress
+                self.BEER.set_position(current_position)
+                self.BEER_LIQUID.set_position(current_position)  # Update liquid position
+                
+                tilt_direction = np.array(self.camera.global_position) - np.array(self.BEER.global_position)
+                tilt_direction[1] -= 2.5 * self.beer_animation_progress
+                tilt_direction = tilt_direction / np.linalg.norm(tilt_direction)
+                self.BEER.set_direction(tilt_direction)
+                self.BEER_LIQUID.set_direction(tilt_direction)  # Update liquid direction
+
+        # Handle bottle throwing first (independent of hasBeer)
+        if self.bottle_thrown:
+            # Update bottle position based on physics
+            current_pos = np.array(self.BEER.global_position)
+            self.bottle_velocity[1] += self.bottle_gravity * self.delta_time
+            new_pos = current_pos + self.bottle_velocity * self.delta_time
+            
+            # Check for collision with floor (y = 0)
+            if new_pos[1] <= 0:
+                self.dynamic_scene.remove(self.BEER)
+                if self.BEER_LIQUID in self.dynamic_scene._children_list:  # Also remove liquid if it exists
+                    self.dynamic_scene.remove(self.BEER_LIQUID)
+                self.bottle_thrown = False
+                self.bottle_velocity = np.array([0.0, 0.0, 0.0])
+            else:
+                self.BEER.set_position(new_pos)
+                if self.BEER_LIQUID in self.dynamic_scene._children_list:  # Update liquid position if it exists
+                    self.BEER_LIQUID.set_position(new_pos)
+                self.BEER.rotate_x(self.delta_time * 5)
+                self.BEER.rotate_z(self.delta_time * 3)
+                if self.BEER_LIQUID in self.dynamic_scene._children_list:  # Update liquid rotation if it exists
+                    self.BEER_LIQUID.rotate_x(self.delta_time * 5)
+                    self.BEER_LIQUID.rotate_z(self.delta_time * 3)
 
         self.brightness_effect.uniform_dict["originalStrength"].data = self.brightness
         camera_position = self.camera.local_position
@@ -1337,20 +1391,21 @@ class Example(Base):
                 
                 # Interpolate position
                 current_position = beer_data['start_position'] + (target_position - beer_data['start_position']) * eased_progress
-                beer_data['mesh'].set_position(current_position)
+                beer_data['bottle'].set_position(current_position)
+                beer_data['liquid'].set_position(current_position)  # Animate liquid position
                 
                 # If animation is complete
                 if progress >= 1.0:
                     if beer_data.get('is_player_beer', False):
                         # This is the player's beer, make it the active BEER
-                        self.dynamic_scene.remove(beer_data['mesh'])
-                        self.BEER.set_position(target_position)
-                        self.dynamic_scene.add(self.BEER)
+                        self.BEER = beer_data['bottle']  # Use the animated bottle
+                        self.BEER_LIQUID = beer_data['liquid']  # Use the animated liquid
                         self.hasBeer = True
                         self.BEER_LEFT = MAX_BEER_AMOUNT_PER_BOTTLE
                     else:
                         # Just remove other beers
-                        self.dynamic_scene.remove(beer_data['mesh'])
+                        self.dynamic_scene.remove(beer_data['bottle'])
+                        self.dynamic_scene.remove(beer_data['liquid'])
                     beers_to_remove.append(beer_data)
             
             # Remove completed animations
@@ -1393,7 +1448,7 @@ class Example(Base):
 
     def remove_bottle(self):
         """Remove one bottle instance if there are bottles remaining"""
-        if self.remaining_bottles > 0 and not self.hasBeer:  # Only allow taking a beer if player doesn't have one
+        if self.remaining_bottles > 0 and not self.hasBeer:
             # Store the position of the bottle we're about to remove
             removed_position = self.bottle_factory.positions[-1]
             
@@ -1420,7 +1475,7 @@ class Example(Base):
             # Update remaining bottles count
             self.remaining_bottles -= 1
             
-            # Create a new BEER at the removed bottle's position
+            # Create both bottle and liquid meshes for animation
             new_beer = Mesh(
                 geometry=self.bottle_geo,
                 material=self._get_cached_material(
@@ -1431,15 +1486,30 @@ class Example(Base):
                     opacity=0.2
                 )
             )
-            new_beer.set_position(removed_position)
-            self.dynamic_scene.add(new_beer)
+            new_liquid = Mesh(
+                geometry=self.liquid_geo,
+                material=self._get_cached_material(
+                    "TransparentMaterial",
+                    color=[0.3,0.3,0],
+                    opacity=0.5
+                )
+            )
             
-            # Add the beer to our spawned beers list with its start position
+            # Set initial positions
+            new_beer.set_position(removed_position)
+            new_liquid.set_position(removed_position)
+            
+            # Add both to scene
+            self.dynamic_scene.add(new_beer)
+            self.dynamic_scene.add(new_liquid)
+            
+            # Add both to spawned beers list
             self.spawned_beers.append({
-                'mesh': new_beer,
+                'bottle': new_beer,
+                'liquid': new_liquid,
                 'start_position': np.array(removed_position),
                 'animation_time': 0,
-                'is_player_beer': True  # Mark this as the player's beer
+                'is_player_beer': True
             })
             
             # Start animation
