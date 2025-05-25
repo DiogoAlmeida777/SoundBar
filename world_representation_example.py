@@ -46,6 +46,7 @@ from effects.brightFilterEffect import brightFilterEffect
 from effects.horizontalBlurEffect import horizontalBlurEffect
 from effects.verticalBlurEffect import verticalBlurEffect
 from effects.additiveBlendEffect import additiveBlendEffect
+from effects.drunkEffect import drunkEffect
 #light imports
 from light.ambient import AmbientLight
 from light.point import PointLight
@@ -107,6 +108,13 @@ class Example(Base):
         self._light_culling_distance = 20.0  # Maximum distance for light influence
         # Add these lines after other initializations
         self.brightness = 2
+        # === Drunkness Effects ===
+        #self.tint = tintEffect(tint_color=[2,2,2])
+        self.pixelate = pixelateEffect(pixel_size=0.01)
+        self.color_reduce = colorReduceEffect(levels=256)
+        self.blur_h = horizontalBlurEffect(texture_size=[400, 300], blur_radius=0)
+        self.blur_v = verticalBlurEffect(texture_size=[400, 300], blur_radius=0)
+        self.drunk_effect = drunkEffect(drunk_level=0.0, time=0.0)
 
         # Add a flag to track if space was just pressed
         self.space_was_pressed = False
@@ -930,14 +938,20 @@ class Example(Base):
                 blend_strength=1.5
             )
         )
-        #self.combo_pass.add_effect(vignetteEffect())
+        self.combo_pass = Postprocessor(self.renderer, self.scene, self.camera)
+        #self.combo_pass.add_effect(self.tint)
+        self.combo_pass.add_effect(self.pixelate)
+        #self.combo_pass.add_effect(self.color_reduce)
+        self.combo_pass.add_effect(self.blur_h)
+        self.combo_pass.add_effect(self.blur_v)
+        self.combo_pass.add_effect(self.drunk_effect)
+
 
         self.brightness_effect = additiveBlendEffect(
             blend_texture=glow_target.texture,
             original_strength=self.brightness,
             blend_strength=1.5
         )
-        self.combo_pass = Postprocessor(self.renderer, self.scene, self.camera)
         self.combo_pass.add_effect(self.brightness_effect)
 
         # HUD Scene
@@ -951,7 +965,25 @@ class Example(Base):
         #label1 = Mesh(labelGeo1,labelMat1)
         #self.hudScene.add(label1)
 
-        
+        # === HUD da cerveja no jogo ===
+        self.beer_hud_scene = Scene()
+        self.beer_hud_camera = Camera()
+        self.beer_hud_camera.set_orthographic(0, self.screen_size[0], 0, self.screen_size[1], 1, -1)
+
+        self.beer_icon_textures = []
+        self.total_beer_frames = 12  # ou o número que tiveres
+        self.beers_drank = 0
+
+        for i in range(self.total_beer_frames):
+            texture = Texture(f"images/gif_frames/beer/frame_{i+1:03d}.png")
+            self.beer_icon_textures.append(texture)
+
+        beer_icon_geo = RectangleGeometry(width=300, height=300, position=[60, self.screen_size[1] - 60],
+                                          alignment=[0.5, 0.5])
+        beer_icon_mat = TextureMaterial(self.beer_icon_textures[0])
+        self.beer_icon_mesh = Mesh(beer_icon_geo, beer_icon_mat)
+        self.beer_hud_scene.add(self.beer_icon_mesh)
+
         # Create player's BEER components but don't add to scene yet
         BEER_MATERIAL = PhongMaterial(
             property_dict={"baseColor":[0, 0.7, 0]},
@@ -1047,7 +1079,7 @@ class Example(Base):
         # === Load GIF background frames ===
         self.bg_textures = []
         script_dir = os.path.dirname(os.path.abspath(__file__))
-        frame_folder = os.path.join(script_dir, "images", "gif_frames")
+        frame_folder = os.path.join(script_dir, "images", "gif_frames/background")
         frame_files = sorted([f for f in os.listdir(frame_folder) if f.endswith(".png")])
 
         for frame_file in frame_files:
@@ -1198,15 +1230,20 @@ class Example(Base):
             # Update beer amount and drunkenness
             if self.input.is_mouse_button_pressed(2) and self.BEER_LEFT > 0:
                 self.BEER_LEFT = max(0, self.BEER_LEFT - self.delta_time * 10)
-                self.DRUNKNESS = self.DRUNKNESS + self.delta_time * 5
             elif self.BEER_LEFT <= 0:
                 if self.gulping_channel is not None:
                     self.gulping_channel.stop()
                     self.gulping_sound_playing = False
+
                 if self.BEER_LIQUID in self.dynamic_scene._children_list:
                     self.dynamic_scene.remove(self.BEER_LIQUID)
                     self.burp_channel.play(self.burp_sound)
+                    self.beers_drank += 1
                 self.bottle_can_throw = True
+                print(f"Beers drank: {self.beers_drank}")
+                if self.beers_drank <= 12:
+                    self.DRUNKNESS = self.beers_drank
+                    self.beer_icon_mesh.material = TextureMaterial(self.beer_icon_textures[self.beers_drank])
                 
 
             # Handle bottle throwing when empty
@@ -1274,6 +1311,7 @@ class Example(Base):
                 self.show_menu = not self.show_menu
                 pygame.mouse.set_visible(self.show_menu)
 
+
         #Menu
         if self.show_menu:
             mx, my = pygame.mouse.get_pos()
@@ -1313,6 +1351,7 @@ class Example(Base):
             return
         else:
             pygame.mouse.set_visible(False)
+
 
         # Update dynamic objects
         speed = 0.5
@@ -1370,6 +1409,23 @@ class Example(Base):
 
         self.glow_pass.render()
         self.combo_pass.render()
+        d = self.DRUNKNESS
+
+        if d > 0:
+
+            self.pixelate.uniform_dict["pixelSize"].data = 0.01 + int(d / 10)
+            self.pixelate.uniform_dict["resolution"].data = [self.screen_size[0], self.screen_size[1]]
+
+            self.color_reduce.uniform_dict["levels"].data = 256 if d < 10 else 64
+
+
+            blur_amount = 0 if d < 11 else 5 + (d - 11) * 2
+            self.blur_h.uniform_dict["blurRadius"].data = blur_amount
+            self.blur_v.uniform_dict["blurRadius"].data = blur_amount
+            self.drunk_effect.update_drunk_level(min(self.DRUNKNESS / 12.0, 1.0))
+            self.drunk_effect.update_time(self.time)
+
+        self.renderer.render(self.beer_hud_scene, self.beer_hud_camera, clear_color=False)
 
         # Update beer animations
         if self.animating_beer and self.spawned_beers:
@@ -1547,8 +1603,7 @@ class Example(Base):
                 'animation_time': 0,
                 'is_player_beer': True
             })
-            
-            # Start animation
+
             self.animating_beer = True
 
 def run_example(resolution=(1920, 1080)):
