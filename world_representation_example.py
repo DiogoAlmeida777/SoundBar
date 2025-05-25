@@ -5,6 +5,7 @@ import math
 import pathlib
 import sys
 import copy
+import random
 
 import pygame
 import pygame.mixer
@@ -63,6 +64,7 @@ from geometry.sphere import SphereGeometry
 from geometry.custom import CustomGeometry
 from geometry.jukebox import JukeboxGeometry
 from geometry.geometry import Geometry
+from geometry.box import BoxGeometry
 
 MAX_BEER_AMOUNT_PER_BOTTLE = 50
 
@@ -84,6 +86,9 @@ class Example(Base):
 
         self.burp_sound = pygame.mixer.Sound("sounds/burp.mp3")
         self.burp_channel = pygame.mixer.Channel(3)
+
+        self.bottle_break_sound = pygame.mixer.Sound("sounds/bottle-break.mp3")
+        self.bottle_break_channel = pygame.mixer.Channel(4)
 
         self.DRUNKNESS = 0
         self.BEER_LEFT = MAX_BEER_AMOUNT_PER_BOTTLE
@@ -155,6 +160,12 @@ class Example(Base):
         pygame.font.init()
         self.font = pygame.font.Font(None, 36)  # None uses default font, 36 is size
         
+        # Glass fragments system
+        self.glass_fragments = []  # List to store active glass fragments
+        self.fragment_lifetime = 10.0  # How long fragments stay on the ground (seconds)
+        self.fragment_gravity = -9.8  # Gravity for fragments
+        self.fragment_bounce_damping = 0.3  # How much velocity is lost on bounce
+
     def _get_cached_texture(self, texture_path):
         """Get a cached texture or create and cache a new one"""
         if texture_path not in self._texture_cache:
@@ -1650,6 +1661,13 @@ class Example(Base):
             
             # Check for collision with floor (y = 0)
             if new_pos[1] <= 0:
+                # Play bottle break sound when it hits the floor
+                self.bottle_break_channel.play(self.bottle_break_sound)
+                
+                # Create glass fragments at impact position
+                impact_position = [new_pos[0], 0, new_pos[2]]
+                self.create_glass_fragments(impact_position, self.bottle_velocity)
+                
                 self.dynamic_scene.remove(self.BEER)
                 if self.BEER_LIQUID in self.dynamic_scene._children_list:  # Also remove liquid if it exists
                     self.dynamic_scene.remove(self.BEER_LIQUID)
@@ -1870,6 +1888,9 @@ class Example(Base):
             # Update animation state
             self.animating_beer = len(self.spawned_beers) > 0
 
+        # Update glass fragments physics
+        self.update_glass_fragments()
+
         self.glow_pass.render()
         if self.show_menu:
             self.hud_pass.render()
@@ -2054,6 +2075,120 @@ class Example(Base):
     def lerp(self, start, end, t):
         """Linear interpolation between start and end values"""
         return start + (end - start) * t
+
+    def create_glass_fragments(self, impact_position, impact_velocity):
+        """Create glass fragments when bottle breaks"""
+        import random
+        
+        # Number of fragments to create
+        num_fragments = random.randint(8, 15)
+        
+        for i in range(num_fragments):
+            # Create small box geometry for fragment
+            fragment_size = random.uniform(0.02, 0.08)  # Random size between 0.02 and 0.08
+            fragment_geo = BoxGeometry(
+                width=fragment_size,
+                height=fragment_size,
+                depth=fragment_size
+            )
+            
+            # Create glass material with transparency
+            fragment_material = self._get_cached_material(
+                "TransparentMaterial",
+                color=[0.2, 0.8, 0.3],  # Green glass color to match beer bottles
+                opacity=0.7
+            )
+            
+            # Create mesh
+            fragment_mesh = Mesh(fragment_geo, fragment_material)
+            
+            # Set initial position near impact point with some randomness
+            offset_x = random.uniform(-0.3, 0.3)
+            offset_z = random.uniform(-0.3, 0.3)
+            offset_y = random.uniform(0.0, 0.2)
+            
+            fragment_position = np.array(impact_position) + np.array([offset_x, offset_y, offset_z])
+            fragment_mesh.set_position(fragment_position)
+            
+            # Calculate initial velocity based on impact velocity and random spread
+            spread_factor = 3.0
+            velocity_x = impact_velocity[0] * random.uniform(0.2, 0.8) + random.uniform(-spread_factor, spread_factor)
+            velocity_y = abs(impact_velocity[1]) * random.uniform(0.3, 1.0) + random.uniform(1.0, 3.0)  # Upward bounce
+            velocity_z = impact_velocity[2] * random.uniform(0.2, 0.8) + random.uniform(-spread_factor, spread_factor)
+            
+            fragment_velocity = np.array([velocity_x, velocity_y, velocity_z])
+            
+            # Add random rotation velocity
+            rotation_velocity = np.array([
+                random.uniform(-10, 10),
+                random.uniform(-10, 10),
+                random.uniform(-10, 10)
+            ])
+            
+            # Store fragment data
+            fragment_data = {
+                'mesh': fragment_mesh,
+                'velocity': fragment_velocity,
+                'rotation_velocity': rotation_velocity,
+                'lifetime': 0.0,
+                'on_ground': False
+            }
+            
+            # Add to scene and fragments list
+            self.dynamic_scene.add(fragment_mesh)
+            self.glass_fragments.append(fragment_data)
+
+    def update_glass_fragments(self):
+        """Update physics and lifetime of glass fragments"""
+        fragments_to_remove = []
+        
+        for fragment in self.glass_fragments:
+            fragment['lifetime'] += self.delta_time
+            
+            # Remove fragments after lifetime expires
+            if fragment['lifetime'] > self.fragment_lifetime:
+                self.dynamic_scene.remove(fragment['mesh'])
+                fragments_to_remove.append(fragment)
+                continue
+            
+            # Update physics if not settled on ground
+            if not fragment['on_ground']:
+                current_pos = np.array(fragment['mesh'].global_position)
+                
+                # Apply gravity
+                fragment['velocity'][1] += self.fragment_gravity * self.delta_time
+                
+                # Update position
+                new_pos = current_pos + fragment['velocity'] * self.delta_time
+                
+                # Check for ground collision
+                if new_pos[1] <= 0.01:  # Small threshold above ground
+                    new_pos[1] = 0.01
+                    
+                    # Bounce with damping
+                    if fragment['velocity'][1] < -0.5:  # Only bounce if moving fast enough
+                        fragment['velocity'][1] = -fragment['velocity'][1] * self.fragment_bounce_damping
+                        fragment['velocity'][0] *= 0.8  # Reduce horizontal velocity
+                        fragment['velocity'][2] *= 0.8
+                    else:
+                        # Stop bouncing and settle on ground
+                        fragment['velocity'] = np.array([0, 0, 0])
+                        fragment['rotation_velocity'] *= 0.1  # Slow down rotation
+                        fragment['on_ground'] = True
+                
+                fragment['mesh'].set_position(new_pos)
+                
+                # Apply rotation
+                fragment['mesh'].rotate_x(fragment['rotation_velocity'][0] * self.delta_time)
+                fragment['mesh'].rotate_y(fragment['rotation_velocity'][1] * self.delta_time)
+                fragment['mesh'].rotate_z(fragment['rotation_velocity'][2] * self.delta_time)
+                
+                # Damping for rotation when in air
+                fragment['rotation_velocity'] *= 0.98
+        
+        # Remove expired fragments
+        for fragment in fragments_to_remove:
+            self.glass_fragments.remove(fragment)
 
 def run_example(resolution=(1920, 1080)):
     Example(screen_size=resolution).run()
