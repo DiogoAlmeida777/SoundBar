@@ -62,7 +62,7 @@ from geometry.custom import CustomGeometry
 from geometry.jukebox import JukeboxGeometry
 from geometry.geometry import Geometry
 
-
+MAX_BEER_AMOUNT_PER_BOTTLE = 50
 
 class Example(Base):
     """
@@ -83,6 +83,20 @@ class Example(Base):
         self.burp_sound = pygame.mixer.Sound("sounds/burp.mp3")
         self.burp_channel = pygame.mixer.Channel(3)
 
+        self.DRUNKNESS = 0
+        self.BEER_LEFT = MAX_BEER_AMOUNT_PER_BOTTLE
+        self.hasBeer = False
+        
+
+
+        self.beer_tilted = False  # Track if beer is currently tilting
+        self.beer_can_tilt = True  # Track if beer can be tilted again
+        self.tilt_towards_player = False
+        self.current_angle = 0  # Track current rotation angle
+        self.move_angle = 10
+        self.beer_animation_progress = 0.0  # Track animation progress (0 to 1)
+        self.beer_animation_speed = 3.0  # Speed of the animation
+
 
         self.show_menu = True
         self.screen_size = screen_size
@@ -92,15 +106,6 @@ class Example(Base):
         self._active_lights = set()
         self._light_culling_distance = 20.0  # Maximum distance for light influence
         # Add these lines after other initializations
-        self.beer_tilted = False  # Track if beer is currently tilting
-        self.beer_can_tilt = True  # Track if beer can be tilted again
-        self.tilt_towards_player = False
-        self.current_angle = 0  # Track current rotation angle
-        self.move_angle = 10
-        self.beer_animation_progress = 0.0  # Track animation progress (0 to 1)
-        self.beer_animation_speed = 3.0  # Speed of the animation
-        
-        self._light_culling_distance = 20.0
         self.brightness = 2
 
     def _get_cached_texture(self, texture_path):
@@ -440,8 +445,8 @@ class Example(Base):
         liquid_geo = BeerGeometries.get("inner")
         cork_geo = BeerGeometries.get("rolha")
         
-        # Create bottle instances using factory
-        bottle_factory = InstancedObjectFactory(
+        # Store bottle factory and positions as instance variables
+        self.bottle_factory = InstancedObjectFactory(
             bottle_geo,
             self._get_cached_material(
                 "PhongMaterial",
@@ -457,17 +462,20 @@ class Example(Base):
         bottle_y = 1
         for i in range(3):
             for j in range(7):
-                bottle_factory.add_instance([bottle_x, bottle_y, 14.5])
+                self.bottle_factory.add_instance([bottle_x, bottle_y, 14.5])
                 bottle_x -= 0.5
             bottle_y += 0.7
             bottle_x = -9.5
             
         # Create bottle mesh
-        bottle_mesh = bottle_factory.build_mesh(self._create_instanced_mesh)
-        self.static_scene.add(bottle_mesh)
+        self.bottle_mesh = self.bottle_factory.build_mesh(self._create_instanced_mesh)
+        self.static_scene.add(self.bottle_mesh)
         
-        # Create liquid instances
-        liquid_factory = InstancedObjectFactory(
+        # Store initial number of bottles
+        self.remaining_bottles = len(self.bottle_factory.positions)
+        
+        # Create liquid instances and store as instance variable
+        self.liquid_factory = InstancedObjectFactory(
             liquid_geo,
             self._get_cached_material(
                 "TransparentMaterial",
@@ -475,12 +483,12 @@ class Example(Base):
                 opacity=0.5
             )
         )
-        liquid_factory.add_instances(bottle_factory.positions)
-        liquid_mesh = liquid_factory.build_mesh(self._create_instanced_mesh)
-        self.static_scene.add(liquid_mesh)
+        self.liquid_factory.add_instances(self.bottle_factory.positions)
+        self.liquid_mesh = self.liquid_factory.build_mesh(self._create_instanced_mesh)
+        self.static_scene.add(self.liquid_mesh)
         
-        # Create cork instances
-        cork_factory = InstancedObjectFactory(
+        # Create cork instances and store as instance variable
+        self.cork_factory = InstancedObjectFactory(
             cork_geo,
             self._get_cached_material(
                 "LambertMaterial",
@@ -489,9 +497,9 @@ class Example(Base):
                 use_shadow=True
             )
         )
-        cork_factory.add_instances(bottle_factory.positions)
-        cork_mesh = cork_factory.build_mesh(self._create_instanced_mesh)
-        self.static_scene.add(cork_mesh)
+        self.cork_factory.add_instances(self.bottle_factory.positions)
+        self.cork_mesh = self.cork_factory.build_mesh(self._create_instanced_mesh)
+        self.static_scene.add(self.cork_mesh)
 
 
         ################PLAYER BOTTLE#########################################################
@@ -1135,9 +1143,10 @@ class Example(Base):
         base_position = np.array(self.camera.global_position) + (camera_direction * beer_offset) + np.array([0,-0.7,0])
         raised_position = base_position + np.array([0, 0.4, 0])  # Raised position when tilted
 
+        # Check for space key press to remove bottle
         if self.input.is_key_pressed("space"):
             self.burp_channel.play(self.burp_sound)
-
+            self.remove_bottle()
 
         
         # Handle tilt input and animation
@@ -1312,6 +1321,34 @@ class Example(Base):
             color1[1] + (color2[1] - color1[1]) * factor,
             color1[2] + (color2[2] - color1[2]) * factor
         ]
+
+    def remove_bottle(self):
+        """Remove one bottle instance if there are bottles remaining"""
+        if self.remaining_bottles > 0:
+            # Remove the last position from all factories
+            self.bottle_factory.positions.pop()
+            self.liquid_factory.positions.pop()
+            self.cork_factory.positions.pop()
+            
+            # Remove the old meshes from the scene
+            self.static_scene.remove(self.bottle_mesh)
+            self.static_scene.remove(self.liquid_mesh)
+            self.static_scene.remove(self.cork_mesh)
+            
+            # Create new meshes with the updated positions
+            self.bottle_mesh = self.bottle_factory.build_mesh(self._create_instanced_mesh)
+            self.liquid_mesh = self.liquid_factory.build_mesh(self._create_instanced_mesh)
+            self.cork_mesh = self.cork_factory.build_mesh(self._create_instanced_mesh)
+            
+            # Add the new meshes to the scene
+            self.static_scene.add(self.bottle_mesh)
+            self.static_scene.add(self.liquid_mesh)
+            self.static_scene.add(self.cork_mesh)
+            
+            # Update remaining bottles count
+            self.remaining_bottles -= 1
+            
+
 
 
 
