@@ -166,6 +166,23 @@ class Example(Base):
         self.fragment_gravity = -9.8  # Gravity for fragments
         self.fragment_bounce_damping = 0.3  # How much velocity is lost on bounce
 
+        # Musical notes system
+        self.musical_notes = []  # List to store active musical notes
+        self.note_lifetime = 2.0  # How long notes stay visible (seconds)
+        self.note_rise_speed = 2.0  # How fast notes rise up
+        self.note_spawn_timer = 0.0  # Timer for spawning new notes
+        self.note_spawn_interval = 0.8  # Time between note spawns (increased from 0.5 to 0.8)
+        self.note_pool = []  # Pool of reusable note meshes
+        self.max_notes = 20  # Maximum number of notes at once
+        self.note_colors = [
+            [1.0, 0.0, 0.0],  # Red
+            [0.0, 1.0, 0.0],  # Green
+            [0.0, 0.0, 1.0],  # Blue
+            [1.0, 1.0, 0.0],  # Yellow
+            [1.0, 0.0, 1.0],  # Magenta
+            [0.0, 1.0, 1.0]   # Cyan
+        ]
+
     def _get_cached_texture(self, texture_path):
         """Get a cached texture or create and cache a new one"""
         if texture_path not in self._texture_cache:
@@ -330,8 +347,8 @@ class Example(Base):
         )
         directional_light.set_position([0,3.5,-11])
         self.dynamic_scene.add(directional_light)
-        direct_helper = DirectionalLightHelper(directional_light)
-        directional_light.add(direct_helper)
+        #direct_helper = DirectionalLightHelper(directional_light)
+        #directional_light.add(direct_helper)
         self.renderer.enable_shadows(directional_light)
 
         #PointLights
@@ -1087,13 +1104,9 @@ class Example(Base):
         self.HarmonicaPlayer.set_position([0,1.5,-10])
         self.dynamic_scene.add(self.HarmonicaPlayer)
 
-
-
-
-
-
-
-
+        #Sonic Update
+        tile_number = math.floor(self.time * self.tiles_per_second)
+        self.sprite.material.uniform_dict["tileNumber"].data = tile_number
 
         #####glow scene#####
         
@@ -1500,6 +1513,95 @@ class Example(Base):
         self.HarmonicaPlayerHead.rotate_z(current_angle)
         self.HarmonicaPlayerBody.rotate_z(current_angle)
         self.harmonica.rotate_z(current_angle)
+
+        # Update musical notes
+        # Update existing notes
+        for note in self.musical_notes:
+            note['lifetime'] += self.delta_time
+            
+            # Reset note when it expires
+            if note['lifetime'] > self.note_lifetime:
+                # Reset position to harmonica
+                harmonica_pos = self.harmonica.global_position
+                note['mesh'].set_position([harmonica_pos[0], harmonica_pos[1] + 0.5, harmonica_pos[2]])
+                
+                # New random color
+                color = random.choice(self.note_colors)
+                note['mesh'].material.set_properties(property_dict={"baseColor": color})
+                
+                # New random velocity
+                note['velocity'] = [random.uniform(-0.5, 0.5), self.note_rise_speed, random.uniform(-0.5, 0.5)]
+                
+                # Reset lifetime
+                note['lifetime'] = 0.0
+                continue
+            
+            # Update position
+            current_pos = np.array(note['mesh'].global_position)
+            new_pos = current_pos + np.array(note['velocity']) * self.delta_time
+            note['mesh'].set_position(new_pos)
+            
+            # Add some rotation for visual effect
+            note['mesh'].rotate_y(self.delta_time * 2)
+
+        # Spawn new notes if we haven't reached max_notes
+        self.note_spawn_timer += self.delta_time
+        if self.note_spawn_timer >= self.note_spawn_interval and len(self.musical_notes) < self.max_notes:
+            # Create new note
+            musical_geo = RectangleGeometry(0.1, 0.1)
+            musical_sprite = Texture("images/musical.png")
+            musical_material = SpriteMaterial(
+                musical_sprite,
+                {
+                    "billboard": True,
+                    "tileCount": [1, 1],
+                    "tileNumber": 0
+                }
+            )
+            note_mesh = Mesh(musical_geo, musical_material)
+            self.dynamic_scene.add(note_mesh)
+
+            # Set initial position at harmonica
+            harmonica_pos = self.harmonica.global_position
+            note_mesh.set_position([harmonica_pos[0], harmonica_pos[1] + 0.5, harmonica_pos[2]+0.3])
+            
+            # Randomize color
+            color = random.choice(self.note_colors)
+            note_mesh.material.set_properties(property_dict={"baseColor": color})
+            
+            # Add to active notes
+            self.musical_notes.append({
+                'mesh': note_mesh,
+                'lifetime': 0.0,
+                'velocity': [random.uniform(-0.5, 0.5), self.note_rise_speed, random.uniform(-0.5, 0.5)]
+            })
+            
+            self.note_spawn_timer = 0.0
+
+        # Remove expired notes
+        notes_to_remove = []
+        for note in self.musical_notes:
+            note['lifetime'] += self.delta_time
+            
+            # Remove notes that have expired
+            if note['lifetime'] > self.note_lifetime:
+                if note['mesh'] in self.dynamic_scene._children_list:
+                    self.dynamic_scene.remove(note['mesh'])
+                self.note_pool.append(note['mesh'])  # Return to pool
+                notes_to_remove.append(note)
+                continue
+            
+            # Update position
+            current_pos = np.array(note['mesh'].global_position)
+            new_pos = current_pos + np.array(note['velocity']) * self.delta_time
+            note['mesh'].set_position(new_pos)
+            
+            # Add some rotation for visual effect
+            note['mesh'].rotate_y(self.delta_time * 2)
+
+        # Remove expired notes
+        for note in notes_to_remove:
+            self.musical_notes.remove(note)
 
         camera_position = self.camera.local_position
         self._cull_lights(camera_position)
