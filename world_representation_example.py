@@ -1447,7 +1447,43 @@ class Example(Base):
         ]
 
     def remove_bottle(self):
-        """Remove one bottle instance if there are bottles remaining"""
+        """Remove one bottle instance if there are bottles remaining and player is near barman/shelf"""
+        # Get player position and direction
+        player_position = np.array(self.camera.global_position)
+        view_matrix = self.camera.view_matrix
+        player_direction = -view_matrix[2][:3]
+        player_direction = player_direction / np.linalg.norm(player_direction)
+
+        # Define positions for barman and shelf
+        barman_position = np.array([-11, 1.6, 13])  # Position of barman's head
+        shelf_position = np.array([-11.1, 0, 14.3])  # Position of shelf
+
+        # Calculate distances
+        distance_to_barman = np.linalg.norm(player_position - barman_position)
+        distance_to_shelf = np.linalg.norm(player_position - shelf_position)
+
+        # Calculate directions to barman and shelf
+        direction_to_barman = barman_position - player_position
+        direction_to_barman = direction_to_barman / np.linalg.norm(direction_to_barman)
+        direction_to_shelf = shelf_position - player_position
+        direction_to_shelf = direction_to_shelf / np.linalg.norm(direction_to_shelf)
+
+        # Calculate dot products to check if player is looking towards barman or shelf
+        dot_barman = np.dot(player_direction, direction_to_barman)
+        dot_shelf = np.dot(player_direction, direction_to_shelf)
+
+        # Maximum distance to interact (3 units)
+        MAX_INTERACTION_DISTANCE = 3.0
+        # Minimum dot product to consider "looking at" (cosine of 45 degrees)
+        MIN_LOOK_DOT = 0.7071  # cos(45 degrees)
+
+        # Check if player is close enough and looking in the right direction
+        is_near_barman = distance_to_barman < MAX_INTERACTION_DISTANCE and dot_barman > MIN_LOOK_DOT
+        is_near_shelf = distance_to_shelf < MAX_INTERACTION_DISTANCE and dot_shelf > MIN_LOOK_DOT
+
+        if not (is_near_barman or is_near_shelf):
+            return  # Exit if player is not in position to take beer
+
         if self.remaining_bottles > 0 and not self.hasBeer:
             # Store the position of the bottle we're about to remove
             removed_position = self.bottle_factory.positions[-1]
