@@ -165,29 +165,6 @@ class Example(Base):
         self.fragment_lifetime = 10.0  # How long fragments stay on the ground (seconds)
         self.fragment_gravity = -9.8  # Gravity for fragments
         self.fragment_bounce_damping = 0.3  # How much velocity is lost on bounce
-        
-        # Add instrument animation parameters
-        self.instrument_animation_active = False
-        self.instrument_animation_speed = 0.3  # Velocidade base da animação reduzida
-        self.instrument_float_height = 0.2  # Altura do movimento flutuante
-        self.instrument_rotation_speed = 0.3  # Velocidade de rotação
-        self.instrument_path_radius = 12.0  # Raio do caminho circular aumentado
-        self.instrument_vertical_offset = 1.5  # Altura base dos instrumentos
-        self.instrument_acceleration_time = 20.0  # Tempo de aceleração gradual
-        self.instrument_animation_start_time = 0.0  # Tempo de início da animação
-        
-        # Limites do bar para os instrumentos
-        self.bar_bounds = {
-            'x_min': -14.0,
-            'x_max': 14.0,
-            'z_min': -14.0,
-            'z_max': 14.0,
-            'y_min': 0.5,
-            'y_max': 3.0
-        }
-        
-        # Lista para armazenar os instrumentos e seus dados de animação
-        self.instruments = []
 
         # Musical notes system
         self.musical_notes = []  # List to store active musical notes
@@ -834,7 +811,7 @@ class Example(Base):
 
         # Adicionar lista de lightcones para controle
         self.lightcones = []
-
+        
         lightcone_geo = ConeGeometry(radius=0.1, height=5)
         lightcone_material = TransparentMaterial(color=[1,1,1], opacity=0.2)
         lightcone = Mesh(lightcone_geo,lightcone_material)
@@ -1062,12 +1039,6 @@ class Example(Base):
         self.mandolin.add(mandolin_strings)
         self.mandolin.set_position([-2,0.5,-12])
         self.dynamic_scene.add(self.mandolin)
-        # Adicionar mandolin à lista de instrumentos
-        self.instruments.append({
-            'object': self.mandolin,
-            'base_position': [-2, self.instrument_vertical_offset, -12],
-            'phase_offset': 0.0  # Offset para criar movimento diferente
-        })
 
         fiddle_geo = CustomGeometry(1,1,1,my_obj_reader('objects/fiddle.obj'))
         wood_fiddle_geo = fiddle_geo.get("fiddle")
@@ -1087,12 +1058,6 @@ class Example(Base):
         self.fiddle.add(fiddle_strings)
         self.fiddle.set_position([2,0.5,-12])
         self.dynamic_scene.add(self.fiddle)
-        # Adicionar fiddle à lista de instrumentos
-        self.instruments.append({
-            'object': self.fiddle,
-            'base_position': [2, self.instrument_vertical_offset, -12],
-            'phase_offset': math.pi/2  # Offset diferente para movimento alternado
-        })
 
         harmonica_player_geo = CustomGeometry(1,1,1,my_obj_reader('objects/harmonicaplayer.obj'))
         harmonica_wood_geo = harmonica_player_geo.get("Madeira")
@@ -1112,14 +1077,8 @@ class Example(Base):
         self.harmonica = Object3D()
         self.harmonica.add(harmonica_metal)
         self.harmonica.add(harmonica_wood)
-        self.harmonica.set_position([0, 1.5, -10])
+        self.harmonica.set_position([0, 1.5, -10])  # Adjusted position to be at mouth level
         self.dynamic_scene.add(self.harmonica)
-        # Adicionar harmonica à lista de instrumentos
-        self.instruments.append({
-            'object': self.harmonica,
-            'base_position': [0, self.instrument_vertical_offset, -10],
-            'phase_offset': math.pi  # Offset diferente para movimento alternado
-        })
 
         harmonicaplayer_head_geo = harmonica_player_geo.get("Head")
         harmonicaplayer_body_geo = harmonica_player_geo.get("Body")
@@ -1716,7 +1675,7 @@ class Example(Base):
         x = math.cos(self.time * speed)/2
         y = math.sin(self.time * speed)/2
         dir = [x, y, 1] 
-
+        
         current_camera_position = np.array(self.camera.global_position)
         movement = np.linalg.norm(current_camera_position - self.last_camera_position)
         if movement > self.movement_threshold:
@@ -1945,58 +1904,11 @@ class Example(Base):
             dynamic_color = self.get_rainbow_color(self.song_color_timer + 1.0)
             for light in self.dynamic_lights:
                 light._color = dynamic_color
-            
-            # Ativar animação dos instrumentos quando a música começa
-            if not self.instrument_animation_active:
-                self.instrument_animation_active = True
-                self.instrument_animation_start_time = self.time
-            
-            # Calcular o progresso da aceleração (0 a 1)
-            acceleration_progress = min(1.0, (self.time - self.instrument_animation_start_time) / self.instrument_acceleration_time)
-            
-            # Atualizar posição dos instrumentos
-            for instrument in self.instruments:
-                # Calcular posição baseada em um caminho circular com múltiplas frequências
-                angle1 = self.time * self.instrument_animation_speed + instrument['phase_offset']
-                angle2 = self.time * self.instrument_animation_speed * 0.5 + instrument['phase_offset'] * 2
-                
-                # Movimento circular combinado
-                x = (math.cos(angle1) + math.sin(angle2)) * self.instrument_path_radius * 0.5
-                z = (math.sin(angle1) + math.cos(angle2)) * self.instrument_path_radius * 0.5
-                
-                # Movimento flutuante
-                y = self.instrument_float_height * math.sin(self.time * 2 + instrument['phase_offset'])
-                
-                # Aplicar limites do bar
-                x = max(self.bar_bounds['x_min'], min(self.bar_bounds['x_max'], x))
-                z = max(self.bar_bounds['z_min'], min(self.bar_bounds['z_max'], z))
-                y = max(self.bar_bounds['y_min'], min(self.bar_bounds['y_max'], y + self.instrument_vertical_offset))
-                
-                # Aplicar aceleração gradual
-                current_position = np.array(instrument['base_position'])
-                target_position = np.array([x, y, z])
-                new_position = current_position + (target_position - current_position) * acceleration_progress
-                
-                # Aplicar posição
-                instrument['object'].set_position(new_position)
-                
-                # Adicionar rotação suave
-                rotation_speed = self.instrument_rotation_speed * acceleration_progress
-                instrument['object'].rotate_y(rotation_speed * self.delta_time)
-                instrument['object'].rotate_x(math.sin(self.time + instrument['phase_offset']) * 0.1 * acceleration_progress)
-            
         else:
             self.song_color_timer = 0.0
             # Reseta os lightcones para o estado padrão quando não há música
             for lightcone in self.lightcones:
                 lightcone.material.set_properties(property_dict={"baseColor": [1,1,1], "opacity": 0.2})
-            # Desativar animação dos instrumentos quando a música para
-            if self.instrument_animation_active:
-                self.instrument_animation_active = False
-                # Retornar instrumentos às posições originais
-                for instrument in self.instruments:
-                    instrument['object'].set_position(instrument['base_position'])
-                    instrument['object'].set_rotation([0, 0, 0])
 
         # Update neon color using set_properties instead of creating new material
         rainbow_color = self.get_rainbow_color(self.time)
@@ -2090,7 +2002,7 @@ class Example(Base):
         
         # Renderizar o HUD contextual por último
         self.renderer.render(self.context_hud, self.context_camera, clear_color=False)
-        
+
         # Renderiza HUD do menu principal ou jukebox consoante o estado
         if self.jukebox_menu_active or self.show_menu:
             self.renderer.render(self.hudScene, self.hudCamera, clear_color=False)
@@ -2380,7 +2292,7 @@ class Example(Base):
         for fragment in fragments_to_remove:
             self.glass_fragments.remove(fragment)
 
-def run_example(resolution=(1300, 700)):
+def run_example(resolution=(1920, 1080)):
     Example(screen_size=resolution).run()
 
 if __name__ == "__main__":
