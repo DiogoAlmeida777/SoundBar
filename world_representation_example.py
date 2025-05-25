@@ -20,6 +20,7 @@ from core_ext.scene import Scene
 from core_ext.render_target import RenderTarget
 from core_ext.texture import Texture
 from core_ext.instanced_object_factory import InstancedObjectFactory
+from core_ext.object3d import Object3D
 #extra imports
 from extras.axes import AxesHelper
 from extras.grid import GridHelper
@@ -873,6 +874,116 @@ class Example(Base):
         self.static_scene.add(songlist1)
         self.static_scene.add(songlist2)
         self.static_scene.add(glass)
+
+        ################INSTRUMENTS###########################
+
+        mandolin_geo = CustomGeometry(1,1,1,my_obj_reader('objects/mandolin.obj'))
+        red_mandolin_geo = mandolin_geo.get("Red")
+        black_mandolin_geo = mandolin_geo.get("Black")
+        brown_mandolin_geo = mandolin_geo.get("Brown")
+        strings_geo = mandolin_geo.get("strings")
+        red_mandolin_material = PhongMaterial(
+            property_dict={"baseColor": [0.4,0,0]},
+            number_of_light_sources=self.light_number,
+            use_shadow=True
+        )
+        black_mandolin_material = PhongMaterial(
+            property_dict={"baseColor": [0,0,0]},
+            number_of_light_sources=self.light_number,
+            use_shadow=True
+        )
+        brown_mandolin_material = PhongMaterial(
+            property_dict={"baseColor": [0.2,0.1,0]},
+            number_of_light_sources=self.light_number,
+            use_shadow=True
+        )
+        strings_mandolin_material = PhongMaterial(
+            property_dict={"baseColor": [0.8,0.8,0.8]},
+            number_of_light_sources=self.light_number,
+            use_shadow=True
+        )
+        red_part = Mesh(geometry=red_mandolin_geo,material=red_mandolin_material)
+        black_part = Mesh(geometry=black_mandolin_geo,material=black_mandolin_material)
+        brown_part = Mesh(geometry=brown_mandolin_geo,material=brown_mandolin_material)
+        mandolin_strings = Mesh(geometry=strings_geo,material=strings_mandolin_material)
+        self.mandolin = Object3D()
+        self.mandolin.add(red_part)
+        self.mandolin.add(black_part)
+        self.mandolin.add(brown_part)
+        self.mandolin.add(mandolin_strings)
+        self.mandolin.set_position([-2,0.5,-12])
+        self.dynamic_scene.add(self.mandolin)
+
+        fiddle_geo = CustomGeometry(1,1,1,my_obj_reader('objects/fiddle.obj'))
+        wood_fiddle_geo = fiddle_geo.get("fiddle")
+        black_fiddle_geo = fiddle_geo.get("black")
+        fiddle_strings_geo = fiddle_geo.get("strings")
+        fiddle_material = PhongMaterial(
+            texture=Texture("images/fiddle_texture.png"),
+            number_of_light_sources=self.light_number,
+            use_shadow=True
+        )
+        wood_part = Mesh(geometry=wood_fiddle_geo,material=fiddle_material)
+        fiddle_black_part = Mesh(geometry=black_fiddle_geo, material=black_mandolin_material)
+        fiddle_strings = Mesh(geometry=fiddle_strings_geo,material=strings_mandolin_material)
+        self.fiddle = Object3D()
+        self.fiddle.add(wood_part)
+        self.fiddle.add(fiddle_black_part)
+        self.fiddle.add(fiddle_strings)
+        self.fiddle.set_position([2,0.5,-12])
+        self.dynamic_scene.add(self.fiddle)
+
+        harmonica_player_geo = CustomGeometry(1,1,1,my_obj_reader('objects/harmonicaplayer.obj'))
+        harmonica_wood_geo = harmonica_player_geo.get("Madeira")
+        harmonica_metal_geo = harmonica_player_geo.get("Metal")
+        harmonica_wood_material = PhongMaterial(
+            texture=Texture('images/wood.jpg'),
+            number_of_light_sources=self.light_number,
+            use_shadow=True
+        )
+        harmonica_metal_material = PhongMaterial(
+            texture=Texture('images/metal.jpg'),
+            number_of_light_sources=self.light_number,
+            use_shadow=True
+        )
+        harmonica_metal = Mesh(geometry=harmonica_wood_geo,material=harmonica_wood_material)
+        harmonica_wood = Mesh(geometry=harmonica_metal_geo,material=harmonica_metal_material)
+        self.harmonica = Object3D()
+        self.harmonica.add(harmonica_metal)
+        self.harmonica.add(harmonica_wood)
+        self.harmonica.set_position([0,0.5,-10])
+        self.dynamic_scene.add(self.harmonica)
+
+        harmonicaplayer_head_geo = harmonica_player_geo.get("Head")
+        harmonicaplayer_body_geo = harmonica_player_geo.get("Body")
+        harmonicaplayer_legs_geo = harmonica_player_geo.get("legs")
+
+        harmonicaplayer_head_material = PhongMaterial(
+            texture=Texture("images/head_harmonicaplayer_texture.png"),
+            number_of_light_sources=self.light_number,
+            use_shadow=True
+        )
+        harmonicaplayer_body_material = PhongMaterial(
+            texture=Texture("images/body_harmonicaplayer_texture.png"),
+            number_of_light_sources=self.light_number,
+            use_shadow=True
+        )
+        self.HarmonicaPlayerHead = Mesh(geometry=harmonicaplayer_head_geo,material=harmonicaplayer_head_material)
+        self.HarmonicaPlayerBody = Mesh(geometry=harmonicaplayer_body_geo,material=harmonicaplayer_body_material)
+        self.HarmonicaPlayerLegs = Mesh(geometry=harmonicaplayer_legs_geo,material=black_mandolin_material)
+        self.HarmonicaPlayer = Object3D()
+        self.HarmonicaPlayer.add(self.HarmonicaPlayerHead)
+        self.HarmonicaPlayer.add(self.HarmonicaPlayerBody)
+        self.HarmonicaPlayer.add(self.HarmonicaPlayerLegs)
+        self.HarmonicaPlayer.set_position([0,0.5,-10])
+        self.dynamic_scene.add(self.HarmonicaPlayer)
+
+
+
+
+
+
+
 
 
         #####glow scene#####

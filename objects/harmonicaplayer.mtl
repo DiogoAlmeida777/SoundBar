@@ -1,7 +1,27 @@
-# Blender 4.3.2 MTL File: 'mandolin.blend'
+# Blender 4.3.2 MTL File: 'lowpolyguy.blend'
 # www.blender.org
 
-newmtl Black
+newmtl Body
+Ns 250.000000
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 2
+map_Kd C:/Users/diogo/Desktop/ProjetoCG/images/body_harmonicaplayer_texture.png
+
+newmtl Head
+Ns 250.000000
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd C:/Users/diogo/Desktop/ProjetoCG/images/head_harmonicaplayer_texture.png
+
+newmtl Madeira
 Ns 250.000000
 Ka 1.000000 1.000000 1.000000
 Kd 0.800000 0.800000 0.800000
@@ -11,7 +31,7 @@ Ni 1.500000
 d 1.000000
 illum 2
 
-newmtl Brown
+newmtl Metal
 Ns 250.000000
 Ka 1.000000 1.000000 1.000000
 Kd 0.800000 0.800000 0.800000
@@ -21,20 +41,10 @@ Ni 1.500000
 d 1.000000
 illum 2
 
-newmtl Red
+newmtl legs
 Ns 250.000000
 Ka 1.000000 1.000000 1.000000
-Ks 0.500000 0.500000 0.500000
-Ke 0.000000 0.000000 0.000000
-Ni 1.500000
-d 1.000000
-illum 2
-map_Kd CG/modelos3d/mandollintexture.png
-
-newmtl strings
-Ns 250.000000
-Ka 1.000000 1.000000 1.000000
-Kd 0.800000 0.800000 0.800000
+Kd 0.000000 0.000000 0.000000
 Ks 0.500000 0.500000 0.500000
 Ke 0.000000 0.000000 0.000000
 Ni 1.500000
