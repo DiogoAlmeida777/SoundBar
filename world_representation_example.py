@@ -121,6 +121,21 @@ class Example(Base):
         # Add sound playing flags
         self.gulping_sound_playing = False
 
+        # Add harmonica player animation parameters
+        self.harmonica_animation_speed = 0.5  # Speed of the animation cycle
+        self.harmonica_tilt_angle = 15  # Increased tilt angle in degrees
+        
+        # Animation states (in radians)
+        self.harmonica_states = {
+            'normal': 0,
+            'right': math.radians(self.harmonica_tilt_angle),
+            'left': math.radians(-self.harmonica_tilt_angle)
+        }
+        
+        # Animation timing
+        self.harmonica_animation_time = 0
+        self.harmonica_animation_duration = 2.0  # Time for one complete cycle (normal -> right -> normal -> left -> normal)
+
     def _get_cached_texture(self, texture_path):
         """Get a cached texture or create and cache a new one"""
         if texture_path not in self._texture_cache:
@@ -951,7 +966,7 @@ class Example(Base):
         self.harmonica = Object3D()
         self.harmonica.add(harmonica_metal)
         self.harmonica.add(harmonica_wood)
-        self.harmonica.set_position([0,0.5,-10])
+        self.harmonica.set_position([0, 1.5, -10])  # Adjusted position to be at mouth level
         self.dynamic_scene.add(self.harmonica)
 
         harmonicaplayer_head_geo = harmonica_player_geo.get("Head")
@@ -975,7 +990,7 @@ class Example(Base):
         self.HarmonicaPlayer.add(self.HarmonicaPlayerHead)
         self.HarmonicaPlayer.add(self.HarmonicaPlayerBody)
         self.HarmonicaPlayer.add(self.HarmonicaPlayerLegs)
-        self.HarmonicaPlayer.set_position([0,0.5,-10])
+        self.HarmonicaPlayer.set_position([0,1.5,-10])
         self.dynamic_scene.add(self.HarmonicaPlayer)
 
 
@@ -1254,6 +1269,36 @@ class Example(Base):
 
         print(self.DRUNKNESS)
 
+        # Update HarmonicaPlayer animation
+        # Update animation time
+        self.harmonica_animation_time = (self.time * self.harmonica_animation_speed) % self.harmonica_animation_duration
+        
+        # Calculate which phase of the animation we're in (0 to 1)
+        phase = self.harmonica_animation_time / self.harmonica_animation_duration
+        
+        # Determine current state based on phase
+        if phase < 0.25:  # Normal to Right
+            t = phase / 0.25  # Normalize to 0-1
+            current_angle = self.lerp(self.harmonica_states['normal'], self.harmonica_states['right'], t)
+        elif phase < 0.5:  # Right to Normal
+            t = (phase - 0.25) / 0.25
+            current_angle = self.lerp(self.harmonica_states['right'], self.harmonica_states['normal'], t)
+        elif phase < 0.75:  # Normal to Left
+            t = (phase - 0.5) / 0.25
+            current_angle = self.lerp(self.harmonica_states['normal'], self.harmonica_states['left'], t)
+        else:  # Left to Normal
+            t = (phase - 0.75) / 0.25
+            current_angle = self.lerp(self.harmonica_states['left'], self.harmonica_states['normal'], t)
+        
+        # Reset rotations first
+        self.HarmonicaPlayerHead.local_matrix = self.HarmonicaPlayerLegs.local_matrix
+        self.HarmonicaPlayerBody.local_matrix = self.HarmonicaPlayerLegs.local_matrix
+        self.harmonica.local_matrix = self.HarmonicaPlayer.local_matrix
+        
+        # Apply the interpolated angle
+        self.HarmonicaPlayerHead.rotate_z(current_angle)
+        self.HarmonicaPlayerBody.rotate_z(current_angle)
+        self.harmonica.rotate_z(current_angle)
 
         camera_position = self.camera.local_position
         self._cull_lights(camera_position)
@@ -1661,6 +1706,10 @@ class Example(Base):
             
             # Start animation
             self.animating_beer = True
+
+    def lerp(self, start, end, t):
+        """Linear interpolation between start and end values"""
+        return start + (end - start) * t
 
 def run_example(resolution=(1920, 1080)):
     Example(screen_size=resolution).run()
