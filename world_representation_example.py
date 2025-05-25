@@ -38,6 +38,7 @@ from material.emissive import EmissiveMaterial
 from material.transparent import TransparentMaterial
 from material.sprite import SpriteMaterial
 from material.line import LineMaterial
+from extras.text_texture import TextTexture
 #effects imports
 from effects.tintEffect import tintEffect
 from effects.pixelateEffect import pixelateEffect
@@ -88,7 +89,15 @@ class Example(Base):
         self.BEER_LEFT = MAX_BEER_AMOUNT_PER_BOTTLE
         self.hasBeer = False
         
-
+        # Jukebox menu state
+        self.jukebox_menu_active = False
+        self.jukebox_buttons = []
+        
+        # Music and light control
+        self.song_playing = False
+        self.last_song_state = False
+        self.song_color_timer = 0.0
+        self.dynamic_lights = []  # Lista para armazenar luzes dinâmicas
 
         self.beer_tilted = False  # Track if beer is currently tilting
         self.beer_can_tilt = True  # Track if beer can be tilted again
@@ -136,6 +145,16 @@ class Example(Base):
         self.harmonica_animation_time = 0
         self.harmonica_animation_duration = 2.0  # Time for one complete cycle (normal -> right -> normal -> left -> normal)
 
+        
+        # Jukebox interaction variables
+        self.jukebox_position = [0, 0, 14.5]  # Posição da jukebox
+        self.jukebox_interaction_distance = 3.0  # Distância de interação
+        self.show_interaction_prompt = False
+        
+        # Initialize pygame font
+        pygame.font.init()
+        self.font = pygame.font.Font(None, 36)  # None uses default font, 36 is size
+        
     def _get_cached_texture(self, texture_path):
         """Get a cached texture or create and cache a new one"""
         if texture_path not in self._texture_cache:
@@ -310,11 +329,13 @@ class Example(Base):
         for i in range(4):
             pointlight = PointLight(color=[0.8,1,0.8],position=(table_positions[i] + np.array([0,1.45,0])))
             self.dynamic_scene.add(pointlight)
+            self.dynamic_lights.append(pointlight)
         
         #ceiling lights
         for i in range(5):
             ceilinglight = PointLight(color=[0.5,0.5,0.2],position=[-9 - i,3.5,12])
             self.dynamic_scene.add(ceilinglight)
+            self.dynamic_lights.append(ceilinglight)
             
         self.light_number = 12
 
@@ -478,11 +499,11 @@ class Example(Base):
             self.bottle_geo,  # Use the instance variable
             self._get_cached_material(
                 "PhongMaterial",
-                property_dict={"baseColor":[0, 0.7, 0]},
-                number_of_light_sources=self.light_number,
-                use_shadow=True,
-                opacity=0.2
-            )
+            property_dict={"baseColor":[0, 0.7, 0]},
+            number_of_light_sources=self.light_number,
+            use_shadow=True,
+            opacity=0.2
+        )
         )
         
         # Add bottle instances
@@ -509,7 +530,7 @@ class Example(Base):
                 "TransparentMaterial",
                 color=[0.3,0.3,0],
                 opacity=0.5
-            )
+        )
         )
         self.liquid_factory.add_instances(self.bottle_factory.positions)
         self.liquid_mesh = self.liquid_factory.build_mesh(self._create_instanced_mesh)
@@ -760,12 +781,74 @@ class Example(Base):
         self.mirrorball.set_position([0,4,0])
         self.static_scene.add(self.mirrorball)
 
+        # Adicionar lista de lightcones para controle
+        self.lightcones = []
+        
         lightcone_geo = ConeGeometry(radius=0.1, height=5)
         lightcone_material = TransparentMaterial(color=[1,1,1], opacity=0.2)
         lightcone = Mesh(lightcone_geo,lightcone_material)
-        lightcone.set_position([0,2,0])
+        lightcone.set_position([0,2,-1.5])
         lightcone.set_direction([0,-1,1])
         self.static_scene.add(lightcone)
+        self.lightcones.append(lightcone)
+
+        lightcone1_geo = ConeGeometry(radius=0.1, height=5)
+        lightcone1_material = TransparentMaterial(color=[1,1,1], opacity=0.2)
+        lightcone1 = Mesh(lightcone1_geo,lightcone1_material)
+        lightcone1.set_position([-1.5,2,0])
+        lightcone1.set_direction([1,-1,0])
+        self.static_scene.add(lightcone1)
+        self.lightcones.append(lightcone1)
+
+        lightcone2_geo = ConeGeometry(radius=0.1, height=5)
+        lightcone2_material = TransparentMaterial(color=[1,1,1], opacity=0.2)
+        lightcone2 = Mesh(lightcone1_geo,lightcone1_material)
+        lightcone2.set_position([1.5,2,0])
+        lightcone2.set_direction([-1,-1,0])
+        self.static_scene.add(lightcone2)
+        self.lightcones.append(lightcone2)
+
+        lightcone3_geo = ConeGeometry(radius=0.1, height=5)
+        lightcone3_material = TransparentMaterial(color=[1,1,1], opacity=0.2)
+        lightcone3 = Mesh(lightcone_geo,lightcone_material)
+        lightcone3.set_position([0,2,1.5])
+        lightcone3.set_direction([0,-1,-1])
+        self.static_scene.add(lightcone3)
+        self.lightcones.append(lightcone3)
+        
+        # Adicionar mais 4 lightcones para as diagonais
+        lightcone4_geo = ConeGeometry(radius=0.1, height=5)
+        lightcone4_material = TransparentMaterial(color=[1,1,1], opacity=0.2)
+        lightcone4 = Mesh(lightcone4_geo,lightcone4_material)
+        lightcone4.set_position([-1.0,2,-1.0])
+        lightcone4.set_direction([1,-1,1])
+        self.static_scene.add(lightcone4)
+        self.lightcones.append(lightcone4)
+
+        lightcone5_geo = ConeGeometry(radius=0.1, height=5)
+        lightcone5_material = TransparentMaterial(color=[1,1,1], opacity=0.2)
+        lightcone5 = Mesh(lightcone5_geo,lightcone5_material)
+        lightcone5.set_position([1.0,2,-1.0])
+        lightcone5.set_direction([-1,-1,1])
+        self.static_scene.add(lightcone5)
+        self.lightcones.append(lightcone5)
+
+        lightcone6_geo = ConeGeometry(radius=0.1, height=5)
+        lightcone6_material = TransparentMaterial(color=[1,1,1], opacity=0.2)
+        lightcone6 = Mesh(lightcone6_geo,lightcone6_material)
+        lightcone6.set_position([-1.0,2,1.0])
+        lightcone6.set_direction([1,-1,-1])
+        self.static_scene.add(lightcone6)
+        self.lightcones.append(lightcone6)
+
+        lightcone7_geo = ConeGeometry(radius=0.1, height=5)
+        lightcone7_material = TransparentMaterial(color=[1,1,1], opacity=0.2)
+        lightcone7 = Mesh(lightcone7_geo,lightcone7_material)
+        lightcone7.set_position([1.0,2,1.0])
+        lightcone7.set_direction([-1,-1,-1])
+        self.static_scene.add(lightcone7)
+        self.lightcones.append(lightcone7)
+
         #DanceFloor
         DancefloorGeometries = CustomGeometry(1,1,1,my_obj_reader('objects/dancefloor.obj'))
         color1_geo = DancefloorGeometries.get("color1")
@@ -1072,12 +1155,55 @@ class Example(Base):
         pygame.mouse.set_visible(True)
         self.hudScene = Scene()
         self.hudCamera = Camera()
-        #labelGeo1 = RectangleGeometry(width=600,height=80,position=[0,600],alignment=[0,1])
-        #labelMat1 = TextureMaterial (Texture("images/Bar Simulator.png"))
-        #label1 = Mesh(labelGeo1,labelMat1)
-        #self.hudScene.add(label1)
-
+        self.hudCamera.set_orthographic(0, 800, 0, 600, 1, -1)
         
+        # Nova cena HUD para mensagens contextuais
+        self.context_hud = Scene()
+        self.context_camera = Camera()
+        self.context_camera.set_orthographic(0, 800, 0, 600, 1, -1)
+        self.context_label = None
+        
+        # Texto de interação com a jukebox
+        jukebox_label_geo = RectangleGeometry(
+            width=400, height=60, 
+            position=[400, 100], alignment=[0.5, 0]
+        )
+        text_texture = TextTexture(
+            text="Pressiona E para interagir com a jukebox",
+            system_font_name="Arial",
+            font_size=32,
+            font_color=(255, 255, 255),
+            background_color=(0, 0, 0, 128),
+            transparent=True
+        )
+        text_material = TextureMaterial(text_texture)
+        self.jukebox_prompt = Mesh(jukebox_label_geo, text_material)
+        
+        # Label Bar Simulator
+        labelGeo1 = RectangleGeometry(width=600, height=80, position=[0,600], alignment=[0,1])
+        labelMat1 = TextureMaterial(Texture("images/Bar Simulator.png"))
+        label1 = Mesh(labelGeo1, labelMat1)
+        
+        # Adiciona o label à HUD scene
+        self.hudScene.add(label1)  # Adiciona apenas o label
+        
+        # Create HUD render target and postprocessor
+        self.hud_target = RenderTarget(resolution=[800, 600])
+        self.hud_pass = Postprocessor(self.renderer, self.hudScene, self.hudCamera, self.hud_target)
+        
+        # Create final pass to compose HUD over the scene
+        self.final_pass = Postprocessor(self.renderer, self.scene, self.camera)
+        self.final_pass.add_effect(
+            additiveBlendEffect(
+                blend_texture=self.hud_target.texture,
+                original_strength=1.0,
+                blend_strength=1.0
+            )
+        )
+        
+        # Create HUD render target and postprocessor
+        glow_target = RenderTarget(resolution=[400, 300])  # Reduced resolution for better performance
+
         # Create player's BEER components but don't add to scene yet
         BEER_MATERIAL = PhongMaterial(
             property_dict={"baseColor":[0, 0.7, 0]},
@@ -1204,7 +1330,8 @@ class Example(Base):
             pygame.time.delay(100) # Para evitar double clicks
             if action == "start_game":
                 self.show_menu = False
-                pygame.mouse.set_visible(False)
+                if self.menu_bg_mesh in self.hudScene._children_list:
+                    self.hudScene.remove(self.menu_bg_mesh)
             elif action == "open_settings":
                 self.handle_menu_change("settings", self.settings_buttons, self.menu_buttons)
             elif action == "exit_game":
@@ -1242,9 +1369,6 @@ class Example(Base):
                 self.input.set_mouse_sensitivity(0.5)
                 self.brightness = 2
                 self.show_menu = False
-
-            elif action == "resetsettings":
-                print("Repor definições (placeholder)")
         except Exception as e:
             print(f"Error handling button action '{action}': {e}")
             return
@@ -1263,6 +1387,72 @@ class Example(Base):
             self.hudScene.add(mesh)
 
         button_list.append((mesh, tex_normal, tex_hover, action, position, width, height))
+
+    def create_jukebox_menu(self):
+        self.jukebox_buttons.clear()
+        center_x = self.screen_size[0] / 2
+        center_y = self.screen_size[1] / 2
+        
+        # Create background for jukebox menu (same as main menu)
+        width, height = self.screen_size
+        menu_bg = RectangleGeometry(width=width, height=height, position=[width / 2, height / 2], alignment=[0.5, 0.5])
+        bg_texture = Texture("images/bar-background-menu.gif")
+        self.jukebox_bg_mesh = Mesh(menu_bg, TextureMaterial(bg_texture))
+        self.jukebox_bg_mesh.set_position([0, 0, 0.1])
+        self.hudScene.add(self.jukebox_bg_mesh)
+        
+        # Create button geometries with same style as main menu
+        button_width = self.screen_size[0] * 0.325
+        button_height = self.screen_size[1] * 0.1
+        button_specs = [
+            ("Play Song 1", "start", [center_x, center_y + 60], "play_song1"),
+            ("Play Song 2", "start", [center_x, center_y], "play_song2"),
+            ("Play Song 3", "start", [center_x, center_y - 60], "play_song3"),
+            ("Close", "back", [center_x, center_y - 130], "close_jukebox")
+        ]
+
+        for label, base_name, position, action in button_specs:
+            # Create button geometry
+            geo = RectangleGeometry(
+                width=button_width,
+                height=button_height,
+                position=position,
+                alignment=[0.5, 0.5]
+            )
+            
+            # Create textures for normal and hover states
+            tex_normal = Texture(f"images/buttons/{base_name}.png")
+            tex_hover = Texture(f"images/buttons/{base_name}_hover.png")
+            
+            # Create mesh with normal texture
+            mesh = Mesh(geo, TextureMaterial(tex_normal))
+            self.hudScene.add(mesh)
+            
+            # Add to buttons list
+            self.jukebox_buttons.append((mesh, tex_normal, tex_hover, action, position, button_width, button_height))
+
+    def handle_jukebox_action(self, action):
+        if action == "play_song1":
+            pygame.mixer.music.load("sounds/song1.mp3")
+            pygame.mixer.music.play()
+            self.song_playing = True
+        elif action == "play_song2":
+            pygame.mixer.music.load("sounds/song2.mp3")
+            pygame.mixer.music.play()
+            self.song_playing = True
+        elif action == "play_song3":
+            pygame.mixer.music.load("sounds/song3.mp3")
+            pygame.mixer.music.play()
+            self.song_playing = True
+        elif action == "close_jukebox":
+            self.jukebox_menu_active = False
+            pygame.mixer.music.stop()
+            self.song_playing = False
+            for mesh, *_ in self.jukebox_buttons:
+                self.hudScene.remove(mesh)
+            if hasattr(self, 'jukebox_bg_mesh') and self.jukebox_bg_mesh in self.hudScene._children_list:
+                self.hudScene.remove(self.jukebox_bg_mesh)
+            self.jukebox_buttons.clear()
 
     def update(self):
         # Update camera position for light culling
@@ -1304,10 +1494,75 @@ class Example(Base):
         self._cull_lights(camera_position)
         self._update_light_uniforms()
         
+        # Get the actual player position from the rig
+        player_position = self.rig.local_position
+        
+        # Check distance to jukebox using player position
+        distance_to_jukebox = np.linalg.norm(np.array(player_position) - np.array(self.jukebox_position))
+        
+        # Handle jukebox interaction
+        self.show_interaction_prompt = distance_to_jukebox < self.jukebox_interaction_distance
+        
+        # Mostrar ou esconder a mensagem de interação dinamicamente
+        if self.show_interaction_prompt:
+            if self.jukebox_prompt not in self.context_hud._children_list:
+                self.context_hud.add(self.jukebox_prompt)
+                
+            # Handle jukebox menu activation
+            if self.input.is_key_pressed("e") and not self.jukebox_menu_active and not self.show_menu:
+                self.close_all_menus()
+                self.jukebox_menu_active = True
+                self.create_jukebox_menu()
+
+        else:
+            if self.jukebox_prompt in self.context_hud._children_list:
+                self.context_hud.remove(self.jukebox_prompt)
+
+        # Handle jukebox menu interaction
+        if self.jukebox_menu_active:
+            mx, my = pygame.mouse.get_pos()
+            my = self.screen_size[1] - my
+
+            # Update background animation
+            frame_index = int(self.time * self.bg_frame_rate) % self.num_bg_frames
+            self.jukebox_bg_mesh.material = TextureMaterial(self.bg_textures[frame_index])
+
+            for mesh, tex_normal, tex_hover, action, position, width, height in self.jukebox_buttons:
+                center_x, center_y = position
+                left = center_x - width // 2
+                right = center_x + width // 2
+                top = center_y - height // 2
+                bottom = center_y + height // 2
+                hovered = left <= mx <= right and top <= my <= bottom
+
+                if hovered:
+                    mesh.material = TextureMaterial(tex_hover)
+                    if self.input.is_mouse_button_pressed(0):
+                        self.handle_jukebox_action(action)
+                else:
+                    mesh.material = TextureMaterial(tex_normal)
+
+        # Só atualiza a câmera se nenhum menu estiver aberto
+        if not self.jukebox_menu_active and not self.show_menu:
+            self.rig.update(self.input, self.delta_time)
 
         self.head.look_at(self.camera.global_position)
         self.head.rotate_y(math.radians(180))
 
+        # === Controlo global do rato e input ===
+        if self.jukebox_menu_active or self.show_menu:
+            pygame.mouse.set_visible(True)
+            pygame.event.set_grab(False)  # Liberta o rato
+        else:
+            pygame.mouse.set_visible(False)
+            pygame.event.set_grab(True)  # Trava o rato para o jogo
+
+        # Update dynamic objects
+        speed = 0.5
+        x = math.cos(self.time * speed)/2
+        y = math.sin(self.time * speed)/2
+        dir = [x, y, 1] 
+        
         current_camera_position = np.array(self.camera.global_position)
         movement = np.linalg.norm(current_camera_position - self.last_camera_position)
         if movement > self.movement_threshold:
@@ -1416,7 +1671,16 @@ class Example(Base):
         self._update_light_uniforms()
 
         if self.input.is_key_down("escape"):
-            if self.show_menu:
+            # Fechar jukebox primeiro, se estiver ativa
+            if self.jukebox_menu_active:
+                self.jukebox_menu_active = False
+                pygame.mouse.set_visible(False)
+                for mesh, *_ in self.jukebox_buttons:
+                    self.hudScene.remove(mesh)
+                self.jukebox_buttons.clear()
+
+            # Tratar o menu principal
+            elif self.show_menu:
                 if self.menu_state == "main":
                     self.show_menu = False
                     pygame.mouse.set_visible(False)
@@ -1426,11 +1690,19 @@ class Example(Base):
                     self.handle_menu_change("settings", self.settings_buttons, self.sensitivity_buttons)
                 elif self.menu_state == "brightness":
                     self.handle_menu_change("settings", self.settings_buttons, self.brightness_buttons)
-            else:
-                self.show_menu = not self.show_menu
-                pygame.mouse.set_visible(self.show_menu)
 
-        #Menu
+            else:
+                # Abrir o menu principal se nada mais estiver aberto
+                self.show_menu = True
+                self.menu_state = "main"
+                pygame.mouse.set_visible(True)
+                if self.menu_bg_mesh not in self.hudScene._children_list:
+                    self.hudScene.add(self.menu_bg_mesh)
+                for mesh, *_ in self.menu_buttons:
+                    if mesh not in self.hudScene._children_list:
+                        self.hudScene.add(mesh)
+
+        menu_rendered = False
         if self.show_menu:
             mx, my = pygame.mouse.get_pos()
             my = self.screen_size[1] - my
@@ -1466,10 +1738,10 @@ class Example(Base):
             frame_index = int(self.time * self.bg_frame_rate) % self.num_bg_frames
             self.menu_bg_mesh.material = TextureMaterial(self.bg_textures[frame_index])
             self.renderer.render(self.hudScene, self.hudCamera, clear_color=False)
-            return
+            menu_rendered = True
         else:
             pygame.mouse.set_visible(False)
-
+        
         # Update dynamic objects
         speed = 0.5
         x = math.cos(self.time * speed)/2
@@ -1485,6 +1757,38 @@ class Example(Base):
                 
         self.vinyl.rotate_y(0.01337)
         self.mirrorball.rotate_y(0.02)
+
+        # === Luzes reactivas à música ===
+        if pygame.mixer.music.get_busy():
+            self.song_color_timer += self.delta_time * 2.0  # controla a velocidade da troca
+            color = self.get_rainbow_color(self.song_color_timer)
+            
+            # Atualiza os lightcones com efeito de apagar/acender
+            for i, lightcone in enumerate(self.lightcones):
+                # Usa o tempo e o índice do lightcone para criar um padrão de apagar/acender
+                should_light = (math.sin(self.time * 2 + i * math.pi/4) + 1) / 2 > 0.5
+                if should_light:
+                    # Quando aceso, usa uma cor do arco-íris com offset baseado no índice
+                    lightcone_color = self.get_rainbow_color(self.song_color_timer + i * 0.5)
+                    lightcone.material.set_properties(property_dict={"baseColor": lightcone_color, "opacity": 0.2})
+                else:
+                    # Quando apagado, fica transparente
+                    lightcone.material.set_properties(property_dict={"baseColor": [1,1,1], "opacity": 0.0})
+            
+            # Aplica a cor às outras luzes (neon, dancefloor, etc.)
+            self.neon.material.set_properties(property_dict={"baseColor": color})
+            self.dancefloor_color1.material.set_properties(property_dict={"baseColor": color})
+            self.dancefloor_color2.material.set_properties(property_dict={"baseColor": [color[2], color[0], color[1]]})
+            
+            # Atualiza as luzes dinâmicas
+            dynamic_color = self.get_rainbow_color(self.song_color_timer + 1.0)
+            for light in self.dynamic_lights:
+                light._color = dynamic_color
+        else:
+            self.song_color_timer = 0.0
+            # Reseta os lightcones para o estado padrão quando não há música
+            for lightcone in self.lightcones:
+                lightcone.material.set_properties(property_dict={"baseColor": [1,1,1], "opacity": 0.2})
 
         # Update neon color using set_properties instead of creating new material
         rainbow_color = self.get_rainbow_color(self.time)
@@ -1521,11 +1825,6 @@ class Example(Base):
         #Sonic Update
         tile_number = math.floor(self.time * self.tiles_per_second)
         self.sprite.material.uniform_dict["tileNumber"].data = tile_number
-
-        self.rig.update(self.input, self.delta_time)
-
-        self.glow_pass.render()
-        self.combo_pass.render()
 
         # Update beer animations
         if self.animating_beer and self.spawned_beers:
@@ -1570,6 +1869,51 @@ class Example(Base):
             
             # Update animation state
             self.animating_beer = len(self.spawned_beers) > 0
+
+        self.glow_pass.render()
+        if self.show_menu:
+            self.hud_pass.render()
+            self.final_pass.render()  # HUD do menu principal
+        else:
+            self.combo_pass.render()  # Renderização normal do jogo
+        
+        # Renderizar o HUD contextual por último
+        self.renderer.render(self.context_hud, self.context_camera, clear_color=False)
+
+        # Renderiza HUD do menu principal ou jukebox consoante o estado
+        if self.jukebox_menu_active or self.show_menu:
+            self.renderer.render(self.hudScene, self.hudCamera, clear_color=False)
+
+        # === Controlo global do rato e input ===
+        if self.jukebox_menu_active or self.show_menu:
+            pygame.mouse.set_visible(True)
+            pygame.event.set_grab(False)  # Liberta o rato
+        else:
+            pygame.mouse.set_visible(False)
+            pygame.event.set_grab(True)  # Trava o rato para o jogo
+
+    def close_all_menus(self):
+        self.show_menu = False
+        self.jukebox_menu_active = False
+
+        for button_list in [
+            self.menu_buttons,
+            self.settings_buttons,
+            self.sensitivity_buttons,
+            self.brightness_buttons,
+            self.jukebox_buttons,
+        ]:
+            for mesh, *_ in button_list:
+                if mesh in self.hudScene._children_list:
+                    self.hudScene.remove(mesh)
+        self.jukebox_buttons.clear()
+
+        # Remove o fundo do menu se estiver presente
+        if self.menu_bg_mesh in self.hudScene._children_list:
+            self.hudScene.remove(self.menu_bg_mesh)
+        if hasattr(self, 'jukebox_bg_mesh') and self.jukebox_bg_mesh in self.hudScene._children_list:
+            self.hudScene.remove(self.jukebox_bg_mesh)
+
 
     def get_rainbow_color(self, time):
         # Convert time to a value between 0 and 1
