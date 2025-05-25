@@ -368,27 +368,91 @@ class Example(Base):
         self.light_number = 12
 
         #BarInterior
-        wall_geometry, floor_geometry, roof_geometry, door_geometry = BarGeometry(1, 1, 1, my_obj_reader('objects/interior.obj'))
-        wall_material = self._get_cached_material(
+        # Mantém esta linha para obter as geometrias do chão, teto e porta:
+        _, floor_geometry, roof_geometry, door_geometry = BarGeometry(1, 1, 1, my_obj_reader('objects/interior.obj'))
+        
+        # Função para aplicar tiling nos UVs
+        def apply_uv_tiling(geometry, repeat_x, repeat_y):
+            uvs = geometry.attribute_dict["vertexUV"].data
+            tiled_uvs = [[u * repeat_x, v * repeat_y] for u, v in uvs]
+            geometry.attribute_dict["vertexUV"].data = tiled_uvs
+
+        # Material para as paredes de madeira (bar/jukebox e quadros)
+        wood_wall_material = self._get_cached_material(
             "LambertMaterial",
-            texture=self._get_cached_texture("images/brick.jpg"),
-            bump_texture=self._get_cached_texture("images/brick-normal-map.png"),
-            property_dict={"bumpStrength": 1},
+            texture=self._get_cached_texture("images/wood.png"),
+            bump_texture=self._get_cached_texture("images/wood_normalmap.jpg"),
+            property_dict={
+                "baseColor": [1.0, 1.0, 1.0],
+                "bumpStrength": 1.0
+            },
             number_of_light_sources=self.light_number,
             use_shadow=True
         )
+        
+        # Material para as paredes plain (palco e soundbar)
+        plain_wall_material = self._get_cached_material(
+            "PhongMaterial",
+            texture=self._get_cached_texture("images/plain.png"),
+            bump_texture=self._get_cached_texture("images/plainmap.jpg"),
+            property_dict={
+                "baseColor": [1.0, 1.0, 1.0],
+                "bumpStrength": 1.0
+            },
+            number_of_light_sources=self.light_number,
+            use_shadow=True
+        )
+
+        # Adicionar apenas as paredes criadas com RectangleGeometry:
+        largura = 30  # X (de -15 a 15)
+        altura = 5    # Y
+        profundidade = 30  # Z (de -15 a 15)
+
+        # Parede do soundbar
+        soundbar_wall_geo = RectangleGeometry(width=profundidade, height=altura)
+        apply_uv_tiling(soundbar_wall_geo, 8.0, 2.0)
+        soundbar_wall_mesh = Mesh(soundbar_wall_geo, plain_wall_material)
+        soundbar_wall_mesh.set_position([-15, altura/2, 0])
+        soundbar_wall_mesh.rotate_y(math.radians(90))
+        self.static_scene.add(soundbar_wall_mesh)
+
+        # Parede dos quadros (direita, x = 15)
+        picture_wall_geo = RectangleGeometry(width=profundidade, height=altura)
+        picture_wall_mesh = Mesh(picture_wall_geo, wood_wall_material)
+        picture_wall_mesh.set_position([15, altura/2, 0])
+        picture_wall_mesh.rotate_y(math.radians(-90))
+        self.static_scene.add(picture_wall_mesh)
+
+        # Parede do palco (fundo, z = -15)
+        stage_wall_geo = RectangleGeometry(width=largura, height=altura)
+        apply_uv_tiling(stage_wall_geo, 4.0, 2.0)  # tiling só no plain
+        stage_wall_mesh = Mesh(stage_wall_geo, plain_wall_material)
+        stage_wall_mesh.set_position([0, altura/2, -15])
+        self.static_scene.add(stage_wall_mesh)
+
+        # Parede do jukebox
+        jukebox_wall_geo = RectangleGeometry(width=largura, height=altura)
+        jukebox_wall_mesh = Mesh(jukebox_wall_geo, wood_wall_material)
+        jukebox_wall_mesh.set_position([0, altura/2, 15])
+        jukebox_wall_mesh.rotate_y(math.radians(180))
+        self.static_scene.add(jukebox_wall_mesh)
+
         floor_material = self._get_cached_material(
             "PhongMaterial",
-            texture=self._get_cached_texture("images/rubber_tiles.jpg"),
-            bump_texture=self._get_cached_texture("images/rubber_tiles_bump.png"),
-            property_dict={"bumpStrength": 3},
+            texture=self._get_cached_texture("images/floor.png"),
+            property_dict={
+                "baseColor": [1.0, 1.0, 1.0]  # Set base color to white to fully use the texture color
+            },
             number_of_light_sources=self.light_number,
             use_shadow=True
         )
+        # Explicitly set the base color after getting the material
+        # floor_material.property_dict["baseColor"] = [0.85, 0.75, 0.6]  # Cor bege para o chão
+
         roof_material = LambertMaterial(
-            texture=Texture("images/tiles.jpg"),
-            bump_texture=Texture("images/tiles_bump.png"),
-            property_dict={"bumpStrength": 3},
+            property_dict={
+                "baseColor": [0.1, 0.1, 0.1]  # Cinza escuro para o teto
+            },
             number_of_light_sources=self.light_number,
             use_shadow=True
         )
@@ -399,11 +463,15 @@ class Example(Base):
             number_of_light_sources=self.light_number,
             use_shadow=True
         )
-        wall_mesh = Mesh(wall_geometry, wall_material)
+        # NÃO adicionar a parede do OBJ:
+        # wall_mesh = Mesh(wall_geometry, wood_wall_material)
+        # self.static_scene.add(wall_mesh)
+        
         floor_mesh = Mesh(floor_geometry, floor_material)
         roof_mesh = Mesh(roof_geometry, roof_material)
         door_mesh = Mesh(door_geometry, door_material)
-        self.static_scene.add(wall_mesh)
+        # NÃO adicionar a parede do OBJ:
+        # self.static_scene.add(wall_mesh)
         self.static_scene.add(floor_mesh)
         self.static_scene.add(roof_mesh)
         self.static_scene.add(door_mesh)
@@ -527,12 +595,13 @@ class Example(Base):
             self.bottle_geo,  # Use the instance variable
             self._get_cached_material(
                 "PhongMaterial",
-            property_dict={"baseColor":[0, 0.7, 0]},
-            number_of_light_sources=self.light_number,
-            use_shadow=True,
-            opacity=0.2
+                property_dict={"baseColor":[0, 0.7, 0]},
+                number_of_light_sources=self.light_number,
+                use_shadow=True,
+                opacity=0.2
+            )
         )
-        )
+        
         
         # Add bottle instances
         bottle_x = -9.5
@@ -543,7 +612,7 @@ class Example(Base):
                 bottle_x -= 0.5
             bottle_y += 0.7
             bottle_x = -9.5
-            
+
         # Create bottle mesh
         self.bottle_mesh = self.bottle_factory.build_mesh(self._create_instanced_mesh)
         self.static_scene.add(self.bottle_mesh)
@@ -974,10 +1043,19 @@ class Example(Base):
         selectcoin = Mesh(geometry=selectcoin_geo,material=selectcoin_material)
         selectsong = Mesh(geometry=selectsong_geo,material=selectsong_material)
         self.vinyl = Mesh(geometry=vinyl_geo,material=vinyl_material)
+        wood.rotate_y(math.radians(180))
+        wood.set_position([0,0,14.5])
+        self.neon.local_matrix = wood.local_matrix
+        metal.local_matrix = wood.local_matrix
+        red.local_matrix = wood.local_matrix
+        metalmesh.local_matrix = wood.local_matrix
+        selectcoin.local_matrix = wood.local_matrix
+        selectsong.local_matrix = wood.local_matrix
+        self.vinyl.local_matrix = wood.local_matrix
         songlist1 = Mesh(geometry=songs1_geo,material=songlist_material)
         songlist2 = Mesh(geometry=songs2_geo,material=songlist_material)
         glass = Mesh(geometry=glass_geo,material=glass_material)
-        wood.rotate_y(math.radians(180))
+        wood.rotate_y(math.radians(0))
         wood.set_position([0,0,14.5])
         self.neon.local_matrix = wood.local_matrix
         metal.local_matrix = wood.local_matrix
@@ -1107,6 +1185,60 @@ class Example(Base):
         #Sonic Update
         tile_number = math.floor(self.time * self.tiles_per_second)
         self.sprite.material.uniform_dict["tileNumber"].data = tile_number
+
+        # Add pictures to the wall opposite the Sound Bar neon sign (around x = 14.9)
+        picture_files = [
+            "images/quadro1.jpg",
+            "images/quadro2.jpg",
+            "images/quadro3.jpg",
+            "images/quadro4.jpg",
+        ]
+        
+        # Even smaller dimensions for pictures to fill the wall
+        picture_width = 0.7
+        picture_height = picture_width * (4/3)  # Maintain aspect ratio
+        
+        # Starting position and spacing for the grid
+        start_x = 14.95  # Position on the wall (X coordinate)
+        start_y = 0.3    # Starting height from the floor (even lower)
+        
+        # Spacing between pictures (smaller)
+        spacing_x = picture_width + 0.1 # Horizontal spacing (along world Z)
+        spacing_z = picture_height + 0.1 # Vertical spacing (along world Y)
+        
+        # Estimate number of columns and rows to fill the entire usable wall area
+        estimated_wall_width_z = 27.0 # Usable width along Z
+        estimated_wall_height_y = 4.2 # Usable height along Y (further increased estimate)
+        
+        num_columns = int(estimated_wall_width_z // spacing_x)
+        num_rows = int(estimated_wall_height_y // spacing_z)
+        
+        # Adjust start_z to better center the grid horizontally
+        total_grid_width_z = num_columns * spacing_x
+        start_z = -total_grid_width_z / 2.0 + spacing_x / 2.0 # Adjust to center based on actual grid width
+        
+        for i in range(num_rows):
+            for j in range(num_columns):
+                picture_geo = RectangleGeometry(width=picture_width, height=picture_height)
+                # Cycle through the available picture files
+                picture_file_index = (i * num_columns + j) % len(picture_files)
+                picture_mat = LambertMaterial(
+                    texture=self._get_cached_texture(picture_files[picture_file_index]),
+                    number_of_light_sources=self.light_number,
+                    use_shadow=True
+                )
+                picture_mesh = Mesh(geometry=picture_geo, material=picture_mat)
+                
+                # Calculate position for each picture in the grid
+                pos_x = start_x
+                pos_y = start_y + i * spacing_z
+                pos_z = start_z + j * spacing_x
+                
+                picture_mesh.set_position([pos_x, pos_y, pos_z])
+                picture_mesh.rotate_y(math.radians(-90)) # Rotate to face into the room
+                
+                self.static_scene.add(picture_mesh)
+
 
         #####glow scene#####
         
