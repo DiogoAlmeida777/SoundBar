@@ -7,7 +7,7 @@ import sys
 import copy
 
 import pygame
-
+import pygame.mixer
 #core imports
 from core.base import Base
 from core.obj_reader import my_obj_reader
@@ -72,6 +72,18 @@ class Example(Base):
 
     def __init__(self, screen_size):
         super().__init__(screen_size)
+        pygame.mixer.init()
+        #SONS
+        self.gulp_sound = pygame.mixer.Sound("sounds/gulp.mp3")
+        self.gulping_channel = pygame.mixer.Channel(1)
+
+        self.steps_sound = pygame.mixer.Sound("sounds/step.mp3")
+        self.stepping_channel = pygame.mixer.Channel(0)
+
+        self.burp_sound = pygame.mixer.Sound("sounds/burp.mp3")
+        self.burp_channel = pygame.mixer.Channel(3)
+
+
         self.show_menu = True
         self.screen_size = screen_size
         self._material_cache = {}
@@ -228,7 +240,9 @@ class Example(Base):
         self.rig.add(self.camera)
         self.rig.set_position([11.5, 1.5, 14])
         self.dynamic_scene.add(self.rig)  # Camera is dynamic
-        
+        self.isWalking = False
+        self.last_camera_position = np.array(self.camera.global_position)
+        self.movement_threshold = 0.01
         # Lights (dynamic since they move/change)
         ambient_light = AmbientLight(color=[0.1, 0.1, 0.1])
         self.dynamic_scene.add(ambient_light)
@@ -532,7 +546,6 @@ class Example(Base):
 
         #Stage
         stagegeometries = CustomGeometry(1,1,1,my_obj_reader('objects/stage.obj'))
-        print(stagegeometries.keys())
         stage_geometry = stagegeometries.get("stage")
         
         frame_geometry =  stagegeometries.get("frame")
@@ -1097,7 +1110,20 @@ class Example(Base):
 
         self.head.look_at(self.camera.global_position)
         self.head.rotate_y(math.radians(180))
-        
+
+        current_camera_position = np.array(self.camera.global_position)
+        movement = np.linalg.norm(current_camera_position - self.last_camera_position)
+        if movement > self.movement_threshold:
+            if not self.isWalking:
+                self.stepping_channel.play(Sound=self.steps_sound, loops=-1)
+                self.isWalking = True
+        else:
+            if self.isWalking:
+                if self.stepping_channel:
+                    self.stepping_channel.stop()
+                self.isWalking = False
+        self.last_camera_position = current_camera_position
+
         # Check for RMB click to toggle tilt
          # Tilt 90 degrees
         
@@ -1108,14 +1134,25 @@ class Example(Base):
         beer_offset = 0.7  # Distance in front of camera
         base_position = np.array(self.camera.global_position) + (camera_direction * beer_offset) + np.array([0,-0.7,0])
         raised_position = base_position + np.array([0, 0.4, 0])  # Raised position when tilted
+
+        if self.input.is_key_pressed("space"):
+            self.burp_channel.play(self.burp_sound)
+
+
         
         # Handle tilt input and animation
         if self.input.is_mouse_button_pressed(2):  # While button is held
             # Animate towards raised position
             self.beer_animation_progress = min(1.0, self.beer_animation_progress + self.beer_animation_speed * self.delta_time)
+            if not self.gulping_sound_playing and self.beer_animation_progress > 0.2:
+                self.gulping_channel.play(Sound=self.gulp_sound, loops=-1)
+                self.gulping_sound_playing = True
         else:  # When button is released
             # Animate back to base position
             self.beer_animation_progress = max(0.0, self.beer_animation_progress - self.beer_animation_speed * self.delta_time)
+            if self.gulping_channel is not None:
+                self.gulping_channel.stop()
+            self.gulping_sound_playing = False
         
         # Interpolate between base and raised positions
         current_position = base_position + (raised_position - base_position) * self.beer_animation_progress
@@ -1187,7 +1224,6 @@ class Example(Base):
         else:
             pygame.mouse.set_visible(False)
 
-        print(self.show_menu)
         # Update dynamic objects
         speed = 0.5
         x = math.cos(self.time * speed)/2
