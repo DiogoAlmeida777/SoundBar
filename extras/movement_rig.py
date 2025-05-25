@@ -9,7 +9,7 @@ class MovementRig(Object3D):
     up and down (all local translations), as well as 
     turning left and right, and looking up and down
     """
-    def __init__(self, units_per_second=3, degrees_per_second=60, mouse_sensitivity=0.1):
+    def __init__(self, units_per_second=3, degrees_per_second=60, mouse_sensitivity=0.1, debug_scene=None):
         # Initialize base Object3D.
         # Controls movement and turn left/right.
         super().__init__()
@@ -37,53 +37,51 @@ class MovementRig(Object3D):
         self.KEY_LOOK_UP = "t"
         self.KEY_LOOK_DOWN = "g"
 
-        # Initialize collision manager
-        self._collision_manager = CollisionManager()
+        # Initialize collision manager with debug scene
+        self._collision_manager = CollisionManager(debug_scene)
         
         # Add collision objects
         self._setup_collision_objects()
 
     def _setup_collision_objects(self):
         """Setup collision objects for the bar"""
-        # Add tables
+        # Add tables with appropriate height
         table_positions = [[-5, 0, -5], [-5, 0, 5], [5, 0, -5], [5, 0, 5]]
-        for pos in table_positions:
-            self._collision_manager.add_collision_object(pos, [2, 0, 2])  # Table size
+        for i, pos in enumerate(table_positions):
+            self._collision_manager.add_collision_object(pos, [2, 0, 2], height=1.5, name=f"Table_{i+1}")
             
-        # Add bar stand (much smaller and more precise collision boxes)
-        # Only block the actual solid parts of the bar
-        self._collision_manager.add_collision_object([-8.5, 0, 12], [1, 0, 1])  # Front corner of bar
-        self._collision_manager.add_collision_object([-11.5, 0, 12], [2.2, 0, 1])  # Back corner of bar
-        self._collision_manager.add_collision_object([-8.5, 0, 13.3], [0.5, 0, 1])  # Close the bar on the customer side
+        # Add bar stand components with different heights
+        self._collision_manager.add_collision_object([-8.7, 0, 12], [1, 0, 1], height=1, name="Bar_Front")
+        self._collision_manager.add_collision_object([-10.9, 0, 12], [4.4, 0, 1.5], height=1, name="Bar_Back")
+        self._collision_manager.add_collision_object([-8.7, 0, 13.3], [1, 0, 1.8], height=1, name="Bar_Side")
         
-        # Add stage
-        self._collision_manager.add_collision_object([0, 0, -11.5], [8, 0, 4])
+        # Add stage with lower height
+        self._collision_manager.add_collision_object([0, 0, -13.5], [6, 0, 6], height=0.5, name="Stage")
         
-        # Add jukebox
-        self._collision_manager.add_collision_object([0, 0, 14.5], [2, 0, 2])
+        # Add circular stage area where musicians are (round part)
+        self._collision_manager.add_collision_object([0, 0, -10.5], [4.5, 0, 4.5], height=0.5, name="Stage_Round")
         
-        # Add shelf (expanded width to cover all bottle columns)
-        self._collision_manager.add_collision_object([-11.1, 0, 14.8], [3.5, 0, 0.8])  # Increased width to cover all bottles
+        # Add jukebox with full height
+        self._collision_manager.add_collision_object([0, 0, 14.5], [1.5, 0, 1.4], height=1.7, name="Jukebox")
         
-        # Add barstools (reduced size to be more precise)
+        # Add shelf with tall height to cover bottles
+        self._collision_manager.add_collision_object([-11.1, 0, 14.8], [4, 0, 0.9], height=3.2, name="Shelf")
+        
+        # Add barman collision with human height
+        self._collision_manager.add_collision_object([-11, 0, 13], [0.65, 0, 0.65], height=2.0, name="Barman")
+        
+        # Add barstools with appropriate height
         for i in range(4):
-            self._collision_manager.add_collision_object([-12.5 + i, 0, 11], [0.3, 0, 0.3])  # Smaller collision for barstools
+            self._collision_manager.add_collision_object([-12.5 + i, 0, 11], [0.3, 0, 0.3], height=1.0, name=f"Barstool_{i+1}")
             
-        # Add TV and table
-        self._collision_manager.add_collision_object([14, 0, -14], [2, 0, 2])
+        # Add TV table with appropriate height
+        self._collision_manager.add_collision_object([14, 0, -14], [2, 0, 2], height=1.5, name="TV_Table")
         
-        # Remove dance floor collision - players should be able to walk on it!
-        # self._collision_manager.add_collision_object([0, 0, 0], [8, 0, 8])
+        # Add neon sign (wall mounted, higher)
+        self._collision_manager.add_collision_object([-14.9, 0, 5], [0.2, 0, 2], height=4.0, name="Neon_Sign")
         
-        # Add mirrorball (hanging above dance floor, not blocking ground movement)
-        # Position adjusted to be above the dance floor, not at ground level
-        # self._collision_manager.add_collision_object([0, 4, 0], [1, 0, 1])
-        
-        # Add neon sign
-        self._collision_manager.add_collision_object([-14.9, 0, 5], [2, 0, 0.5])
-        
-        # Add exit sign
-        self._collision_manager.add_collision_object([12.1, 0, 15], [1, 0, 0.5])
+        # Add exit sign (wall mounted, higher)
+        self._collision_manager.add_collision_object([12.1, 0, 15], [0.2, 0, 1], height=3.0, name="Exit_Sign")
 
     # Adding and removing objects applies to look attachment.
     # Override functions from the Object3D class.
