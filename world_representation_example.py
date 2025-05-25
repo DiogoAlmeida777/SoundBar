@@ -389,6 +389,32 @@ class Example(Base):
         barstand.rotate_y(math.radians(90))
         barstand.set_position([-10,0,12])
         self.static_scene.add(barstand)
+
+        #BarMan
+        barman_geometry = CustomGeometry(1,1,1,my_obj_reader('objects/barman.obj'))
+        body_geo = barman_geometry.get("Body")
+        head_geo = barman_geometry.get("Head")
+        body_material = LambertMaterial(
+            texture=Texture("images/body_texture.png"),
+            number_of_light_sources=self.light_number,
+            use_shadow=True
+        )
+        #body_material = TextureMaterial(Texture("images/body_texture.png"))
+        head_material = LambertMaterial(
+            texture=Texture("images/head_texture.png"),
+            number_of_light_sources=self.light_number,
+            use_shadow=True
+        )
+        #head_material = TextureMaterial(Texture("images/head_texture.png"))
+        self.head = Mesh(geometry=head_geo,material=head_material)
+        self.body = Mesh(geometry=body_geo,material=body_material)
+        self.head.set_position([-11,1.6,13])
+        self.head.rotate_y(math.radians(180))
+        self.body.local_matrix = self.head.local_matrix
+        self.dynamic_scene.add(self.head)
+        self.static_scene.add(self.body)
+
+
         #Shelf
         shelf_geometry = CustomGeometry(1,1,1,my_obj_reader('objects/shelf.obj')).get("shelf")
         shelf_material = PhongMaterial(
@@ -422,7 +448,7 @@ class Example(Base):
         # Add bottle instances
         bottle_x = -9.5
         bottle_y = 1
-        for i in range(4):
+        for i in range(3):
             for j in range(7):
                 bottle_factory.add_instance([bottle_x, bottle_y, 14.5])
                 bottle_x -= 0.5
@@ -504,8 +530,8 @@ class Example(Base):
         self.spotlight.local_matrix = support.local_matrix
         self.light.local_matrix = support.local_matrix
         self.static_scene.add(support)
-        self.static_scene.add(self.spotlight)
-        self.static_scene.add(self.light)
+        self.dynamic_scene.add(self.spotlight)
+        self.dynamic_scene.add(self.light)
 
         #Stage
         stagegeometries = CustomGeometry(1,1,1,my_obj_reader('objects/stage.obj'))
@@ -819,7 +845,6 @@ class Example(Base):
         self.static_scene.add(songlist2)
         self.static_scene.add(glass)
 
-        #mirror
 
         #####glow scene#####
         
@@ -864,6 +889,7 @@ class Example(Base):
         # Reduced blur radius for better performance
         self.glow_pass.add_effect(horizontalBlurEffect(texture_size=[400,300], blur_radius=25))
         self.glow_pass.add_effect(verticalBlurEffect(texture_size=[400,300], blur_radius=25))
+        
 
 
         # combining results of glow effect with main scene
@@ -875,6 +901,7 @@ class Example(Base):
                 blend_strength=1.5  # Reduced blend strength for better performance
             )
         )
+        #self.combo_pass.add_effect(vignetteEffect())
 
         # Compor HUD por cima da cena com glow
         self.final_pass = Postprocessor(self.renderer, self.scene, self.camera)
@@ -892,26 +919,6 @@ class Example(Base):
         self._cull_lights(camera_position)
         self._update_light_uniforms()
         
-        # Get the actual player position from the rig
-        player_position = self.rig.local_position
-        
-        # Check distance to jukebox using player position
-        distance_to_jukebox = np.linalg.norm(np.array(player_position) - np.array(self.jukebox_position))
-        print(f"Distance to jukebox: {distance_to_jukebox}")  # Debug print
-        
-        # Handle jukebox interaction
-        self.show_interaction_prompt = distance_to_jukebox < self.jukebox_interaction_distance
-        print(f"Show interaction prompt: {self.show_interaction_prompt}")  # Debug print
-        print("Mesh no HUD:", self.interaction_mesh in self.hudScene._children_list)  # Debug print
-        
-        # Mostrar ou esconder a mensagem de interação dinamicamente
-        if self.show_interaction_prompt:
-            if self.interaction_mesh not in self.hudScene._children_list:
-                self.hudScene.add(self.interaction_mesh)
-        else:
-            if self.interaction_mesh in self.hudScene._children_list:
-                self.hudScene.remove(self.interaction_mesh)
-        
         # Update dynamic objects
         speed = 0.5
         x = math.cos(self.time * speed)/2
@@ -922,6 +929,8 @@ class Example(Base):
         for light in self._active_lights:
             if isinstance(light, SpotLight):
                 light.direction = dir
+                self.spotlight.set_direction(dir)
+                self.light.local_matrix = self.spotlight.local_matrix
                 
         self.vinyl.rotate_y(0.01337)
         self.mirrorball.rotate_y(0.02)
