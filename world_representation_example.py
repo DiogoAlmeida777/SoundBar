@@ -1094,13 +1094,6 @@ class Example(Base):
         self.dynamic_scene.add(self.HarmonicaPlayer)
 
 
-
-
-
-
-
-
-
         #####glow scene#####
         
         
@@ -1473,8 +1466,6 @@ class Example(Base):
 
     def update(self):
         # Update camera position for light culling
-
-        print(self.DRUNKNESS)
 
         # Update HarmonicaPlayer animation
         # Update animation time
@@ -2218,6 +2209,15 @@ class Example(Base):
         # Add circular stage area where musicians are (round part) - more precise
         self.bottle_collision_manager.add_collision_object([0, 0, -10.5], [4.5, 0, 4.5], height=0.5, name="Bottle_Stage_Round")
         
+        # Add stage wireframe structure (metal framework)
+        # Left vertical support
+        self.bottle_collision_manager.add_collision_object([-4, 0, -10], [0.75, 0, 0.75], height=6.0, name="Bottle_Stage_Support_Left")
+        # Right vertical support  
+        self.bottle_collision_manager.add_collision_object([4, 0, -10], [0.75, 0, 0.75], height=6.0, name="Bottle_Stage_Support_Right")
+
+        # Add musician on stage collision (same size as barman)
+        self.bottle_collision_manager.add_collision_object([0, 0, -10], [0.65, 0, 0.65], height=2.5, name="Bottle_Musician")
+        
         # Add jukebox
         self.bottle_collision_manager.add_collision_object([0, 0, 14.5], [1.5, 0, 1.4], height=1.7, name="Bottle_Jukebox")
         
@@ -2232,14 +2232,8 @@ class Example(Base):
             self.bottle_collision_manager.add_collision_object([-12.5 + i, 0, 11], [0.3, 0, 0.3], height=1.0, name=f"Bottle_Barstool_{i+1}")
             
         # Add TV table
-        self.bottle_collision_manager.add_collision_object([14, 0, -14], [2, 0, 2], height=1.5, name="Bottle_TV_Table")
+        self.bottle_collision_manager.add_collision_object([14, 0, -14], [2, 0, 1.5], height=1.5, name="Bottle_TV_Table")
         
-        # Add neon sign
-        self.bottle_collision_manager.add_collision_object([-14.9, 0, 5], [0.2, 0, 2], height=4.0, name="Bottle_Neon_Sign")
-        
-        # Add exit sign
-        self.bottle_collision_manager.add_collision_object([12.1, 0, 15], [0.2, 0, 1], height=3.0, name="Bottle_Exit_Sign")
-
 def run_example(resolution=(1920, 1080)):
     Example(screen_size=resolution).run()
 

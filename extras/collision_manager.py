@@ -30,9 +30,9 @@ class CollisionManager:
             'name': name
         })
         
-        # Create debug visualization box if scene is provided
-        if self.scene is not None:
-            self.create_debug_box(position, size, height, name)
+        # Debug visualization disabled - collision logic remains active
+        # if self.scene is not None:
+        #     self.create_debug_box(position, size, height, name)
         
     def create_debug_box(self, position, size, height, name=""):
         """Create a red debug box to visualize collision area"""

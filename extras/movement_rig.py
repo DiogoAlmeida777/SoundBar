@@ -70,18 +70,22 @@ class MovementRig(Object3D):
         # Add barman collision with human height
         self._collision_manager.add_collision_object([-11, 0, 13], [0.65, 0, 0.65], height=2.0, name="Barman")
         
+        # Add musician on stage collision (same size as barman)
+        self._collision_manager.add_collision_object([0, 0, -10], [0.65, 0, 0.65], height=2.5, name="Musician")
+
+        # Add stage wireframe structure (metal framework)
+        # Left vertical support
+        self._collision_manager.add_collision_object([-4, 0, -10], [0.75, 0, 0.75], height=6.0, name="Stage_Support_Left")
+        # Right vertical support  
+        self._collision_manager.add_collision_object([4, 0, -10], [0.75, 0, 0.75], height=6.0, name="Stage_Support_Right")
+
         # Add barstools with appropriate height
         for i in range(4):
             self._collision_manager.add_collision_object([-12.5 + i, 0, 11], [0.3, 0, 0.3], height=1.0, name=f"Barstool_{i+1}")
             
         # Add TV table with appropriate height
-        self._collision_manager.add_collision_object([14, 0, -14], [2, 0, 2], height=1.5, name="TV_Table")
+        self._collision_manager.add_collision_object([14, 0, -14], [2, 0, 1.5], height=1.5, name="TV_Table")
         
-        # Add neon sign (wall mounted, higher)
-        self._collision_manager.add_collision_object([-14.9, 0, 5], [0.2, 0, 2], height=4.0, name="Neon_Sign")
-        
-        # Add exit sign (wall mounted, higher)
-        self._collision_manager.add_collision_object([12.1, 0, 15], [0.2, 0, 1], height=3.0, name="Exit_Sign")
 
     # Adding and removing objects applies to look attachment.
     # Override functions from the Object3D class.
