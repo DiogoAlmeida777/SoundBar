@@ -214,6 +214,17 @@ class Example(Base):
         # list to store each instrument and animation metadata
         self.instruments = []
 
+        # Add chair animation parameters
+        self.chair_animation_active = False
+        self.chair_animation_speed = 0.2  # Slower movement
+        self.chair_float_height = 1  # Reduced float height
+        self.chair_rotation_speed = 0.2  # Slower rotation
+        self.chair_path_radius = 4.0  # Larger radius to keep chairs apart
+        self.chair_vertical_offset = 2  # Increased base height offset
+        self.chair_acceleration_time = 3.0  # Slower transition
+        self.chair_animation_start_time = 0
+        self.flying_chairs = []  # List to store flying chair objects
+
     def _get_cached_texture(self, texture_path):
         """Get a cached texture or create and cache a new one"""
         if texture_path not in self._texture_cache:
@@ -811,14 +822,22 @@ class Example(Base):
             use_shadow=True,      
         )
         # Create puff chair instances
+        self.cushion_geo = cushion_geo  # Store as class attribute
+        self.chairbase_geo = chairbase_geo  # Store as class attribute
+        self.cushion_material = cushion_material  # Store as class attribute
+        self.chairbase_material = chairbase_material  # Store as class attribute
+        
         cushion_factory = InstancedObjectFactory(
-            cushion_geo,
-            cushion_material
+            self.cushion_geo,
+            self.cushion_material
         )
         chairbase_factory = InstancedObjectFactory(
-            chairbase_geo,
-            chairbase_material
+            self.chairbase_geo,
+            self.chairbase_material
         )
+        
+        # Store chair positions for later use
+        self.chair_positions = []
         
         # Add chair instances around tables
         for tx, ty, tz in table_positions:
@@ -827,14 +846,11 @@ class Example(Base):
                 angle_rad = math.radians(angle_deg)
                 dx = math.sin(angle_rad) * 1.5
                 dz = math.cos(angle_rad) * 1.5
-                cushion_factory.add_instance(
-                    [tx + dx, 0, tz + dz],
-                    [0, angle_rad + math.pi, 0]
-                )
-                chairbase_factory.add_instance(
-                    [tx + dx, 0, tz + dz],
-                    [0, angle_rad + math.pi, 0]
-                )
+                pos = [tx + dx, 0, tz + dz]
+                rot = [0, angle_rad + math.pi, 0]
+                cushion_factory.add_instance(pos, rot)
+                chairbase_factory.add_instance(pos, rot)
+                self.chair_positions.append({'position': pos, 'rotation': rot})
                 
         client_geo = CustomGeometry(1,1,1,my_obj_reader('objects/client.obj')).get("Body")
         client1_material = LambertMaterial(
@@ -1465,9 +1481,10 @@ class Example(Base):
         self.jukebox_buttons = []
 
         jukebox_specs = [
-            ("Play Song 1", "start", [center_x, height * 0.6], "play_song1"),
-            ("Play Song 2", "start", [center_x, height * 0.45], "play_song2"),
-            ("Play Song 3", "start", [center_x, height * 0.3], "play_song3"),
+            ("Play Song 1", "start", [center_x, height * 0.75], "play_song1"),
+            ("Play Song 2", "start", [center_x, height * 0.6], "play_song2"),
+            ("Play Song 3", "start", [center_x, height * 0.45], "play_song3"),
+            ("Play Song 4", "start", [center_x, height * 0.3], "play_song4"),
             ("Close", "back", [center_x, height * 0.15], "close_jukebox")
         ]
 
@@ -1628,19 +1645,25 @@ class Example(Base):
                 self.brightness = 2
                 self.show_menu = False
             elif action == "play_song1":
-                pygame.mixer.music.load("sounds/song1.mp3")
+                pygame.mixer.music.load("sounds/banjo.mp3")
                 pygame.mixer.music.play()
                 self.song_playing = True
                 self.handle_menu_change("main", self.menu_buttons, self.jukebox_buttons)
                 self.show_menu = False
             elif action == "play_song2":
-                # pygame.mixer.music.load("sounds/song2.mp3")
+                pygame.mixer.music.load("sounds/fiddle.mp3")
                 pygame.mixer.music.play()
                 self.song_playing = True
                 self.handle_menu_change("main", self.menu_buttons, self.jukebox_buttons)
                 self.show_menu = False
             elif action == "play_song3":
-                # pygame.mixer.music.load("sounds/song3.mp3")
+                pygame.mixer.music.load("sounds/mandolin.mp3")
+                pygame.mixer.music.play()
+                self.song_playing = True
+                self.handle_menu_change("main", self.menu_buttons, self.jukebox_buttons)
+                self.show_menu = False
+            elif action == "play_song4":
+                pygame.mixer.music.load("sounds/bateria.mp3")
                 pygame.mixer.music.play()
                 self.song_playing = True
                 self.handle_menu_change("main", self.menu_buttons, self.jukebox_buttons)
@@ -1715,9 +1738,18 @@ class Example(Base):
             
             # Reset note when it expires
             if note['lifetime'] > self.note_lifetime:
-                # Reset position to harmonica
-                harmonica_pos = self.harmonica.global_position
-                note['mesh'].set_position([harmonica_pos[0], harmonica_pos[1] + 0.5, harmonica_pos[2]])
+                # Choose a random instrument to reset to
+                instruments = [
+                    self.harmonica,
+                    self.mandolin,
+                    self.fiddle,
+                    self.banjo
+                ]
+                reset_instrument = random.choice(instruments)
+                instrument_pos = reset_instrument.global_position
+                
+                # Reset position to chosen instrument
+                note['mesh'].set_position([instrument_pos[0], instrument_pos[1] + 0.5, instrument_pos[2]])
                 
                 # New random color
                 color = random.choice(self.note_colors)
@@ -1738,9 +1770,23 @@ class Example(Base):
             # Add some rotation for visual effect
             note['mesh'].rotate_y(self.delta_time * 2)
 
+        # Play harmonica as background music when no other music is playing
+        if not pygame.mixer.music.get_busy() and not self.song_playing:
+            pygame.mixer.music.load("sounds/harmonica.mp3")
+            pygame.mixer.music.play(-1)  # -1 means loop indefinitely
+
         # Spawn new notes if we haven't reached max_notes
         self.note_spawn_timer += self.delta_time
         if self.note_spawn_timer >= self.note_spawn_interval and len(self.musical_notes) < self.max_notes:
+            # Choose a random instrument to spawn from
+            instruments = [
+                self.harmonica,
+                self.mandolin,
+                self.fiddle,
+                self.banjo
+            ]
+            spawn_instrument = random.choice(instruments)
+            
             # Create new note
             musical_geo = RectangleGeometry(0.1, 0.1)
             musical_sprite = Texture("images/musical.png")
@@ -1755,9 +1801,9 @@ class Example(Base):
             note_mesh = Mesh(musical_geo, musical_material)
             self.dynamic_scene.add(note_mesh)
 
-            # Set initial position at harmonica
-            harmonica_pos = self.harmonica.global_position
-            note_mesh.set_position([harmonica_pos[0], harmonica_pos[1] + 0.5, harmonica_pos[2]+0.3])
+            # Set initial position at the chosen instrument
+            instrument_pos = spawn_instrument.global_position
+            note_mesh.set_position([instrument_pos[0], instrument_pos[1] + 0.5, instrument_pos[2]+0.3])
             
             # Randomize color
             color = random.choice(self.note_colors)
@@ -1771,6 +1817,44 @@ class Example(Base):
             })
             
             self.note_spawn_timer = 0.0
+
+        # Spawn drunkness-based notes
+        if self.DRUNKNESS > 0:
+            # Scale spawn rate with drunkness (0-1 range)
+            drunk_spawn_chance = self.DRUNKNESS * self.delta_time * 2.0  # 2.0 is the base spawn rate multiplier
+            
+            if random.random() < drunk_spawn_chance and len(self.musical_notes) < self.max_notes:
+                # Create new note
+                musical_geo = RectangleGeometry(0.1, 0.1)
+                musical_sprite = Texture("images/musical.png")
+                musical_material = SpriteMaterial(
+                    musical_sprite,
+                    {
+                        "billboard": True,
+                        "tileCount": [1, 1],
+                        "tileNumber": 0
+                    }
+                )
+                note_mesh = Mesh(musical_geo, musical_material)
+                self.dynamic_scene.add(note_mesh)
+
+                # Random position within bar bounds
+                x = random.uniform(self.bar_bounds['x_min'], self.bar_bounds['x_max'])
+                z = random.uniform(self.bar_bounds['z_min'], self.bar_bounds['z_max'])
+                y = self.bar_bounds['y_min']  # Start from floor level
+                
+                note_mesh.set_position([x, y, z])
+                
+                # Randomize color
+                color = random.choice(self.note_colors)
+                note_mesh.material.set_properties(property_dict={"baseColor": color})
+                
+                # Add to active notes with upward velocity
+                self.musical_notes.append({
+                    'mesh': note_mesh,
+                    'lifetime': 0.0,
+                    'velocity': [random.uniform(-0.3, 0.3), self.note_rise_speed * 0.8, random.uniform(-0.3, 0.3)]
+                })
 
         # Remove expired notes
         notes_to_remove = []
@@ -1798,8 +1882,8 @@ class Example(Base):
             self.musical_notes.remove(note)
 
         # ---------------------- INSTRUMENT ANIMATION -------------------
-        # Start when music is playing
-        if pygame.mixer.music.get_busy():
+        # Start when music is playing and it's a jukebox song
+        if pygame.mixer.music.get_busy() and self.song_playing:
             if not self.instrument_animation_active:
                 self.instrument_animation_active = True
                 self.instrument_animation_start_time = self.time
@@ -1846,7 +1930,9 @@ class Example(Base):
                 self.instrument_animation_active = False
                 for inst in self.instruments:
                     inst['object'].set_position(inst['base_position'])
-                    inst['object'].set_rotation([0,0,0])
+                    inst['object'].rotate_x(0)
+                    inst['object'].rotate_y(0)
+                    inst['object'].rotate_z(0)
         # --------------------------------------------------------------------
 
         camera_position = self.camera.local_position
@@ -2096,7 +2182,7 @@ class Example(Base):
         self.mirrorball.rotate_y(0.02)
 
         # === Luzes reactivas à música ===
-        if pygame.mixer.music.get_busy():
+        if pygame.mixer.music.get_busy() and self.song_playing:  # Only react to jukebox songs
             self.song_color_timer += self.delta_time * 2.0  # controla a velocidade da troca
             color = self.get_rainbow_color(self.song_color_timer)
             
@@ -2244,7 +2330,112 @@ class Example(Base):
         if self.show_menu:
             self.renderer.render(self.hudScene, self.hudCamera, clear_color=False)
 
-
+        # Update flying chairs when drunkness is high
+        if self.DRUNKNESS > 6:
+            if not self.chair_animation_active:
+                self.chair_animation_active = True
+                self.chair_animation_start_time = self.time
+                
+                # Create flying chairs if they don't exist
+                if not self.flying_chairs:
+                    # Choose 2 random chairs to fly
+                    flying_positions = random.sample(self.chair_positions, 2)
+                    for chair_data in flying_positions:
+                        # Create cushion
+                        cushion = Mesh(
+                            geometry=self.cushion_geo,
+                            material=self.cushion_material
+                        )
+                        # Create base
+                        base = Mesh(
+                            geometry=self.chairbase_geo,
+                            material=self.chairbase_material
+                        )
+                        # Set initial positions
+                        cushion.set_position(chair_data['position'])
+                        base.set_position(chair_data['position'])
+                        # Store original position for smooth transition
+                        self.flying_chairs.append({
+                            'cushion': cushion,
+                            'base': base,
+                            'original_position': chair_data['position'],
+                            'target_position': chair_data['position'],
+                            'angle': 0,
+                            'vertical_offset': 0,
+                            'transition_progress': 0  # Add transition progress
+                        })
+                        self.scene.add(cushion)
+                        self.scene.add(base)
+            
+            # Update flying chairs animation
+            for i, chair in enumerate(self.flying_chairs):
+                # Calculate time since animation started
+                elapsed_time = self.time - self.chair_animation_start_time
+                
+                # Add phase offset based on chair index to keep them apart
+                phase_offset = i * math.pi  # 180 degrees offset between chairs
+                
+                # Smooth transition from original position to flying animation
+                if chair['transition_progress'] < 1:
+                    chair['transition_progress'] = min(1, elapsed_time / self.chair_acceleration_time)
+                    # Calculate target position with minimum height
+                    target_x = math.cos(chair['angle'] + phase_offset) * self.chair_path_radius
+                    target_z = math.sin(chair['angle'] + phase_offset) * self.chair_path_radius
+                    # Use absolute value of sin to ensure positive height variation
+                    target_y = self.chair_vertical_offset + (abs(math.sin(elapsed_time * self.chair_animation_speed + phase_offset)) * self.chair_float_height)
+                    
+                    # Interpolate position, but ensure minimum height during transition
+                    current_pos = self.lerp(
+                        chair['original_position'],
+                        [target_x, target_y, target_z],
+                        chair['transition_progress']
+                    )
+                    # Ensure minimum height during transition
+                    current_pos[1] = max(current_pos[1], self.chair_vertical_offset * chair['transition_progress'])
+                    
+                    chair['cushion'].set_position(current_pos)
+                    chair['base'].set_position(current_pos)
+                
+                # Update angle and vertical offset with more variation
+                chair['angle'] += self.chair_rotation_speed * self.delta_time
+                # Add more variation to vertical movement, but keep it positive
+                vertical_variation = abs(math.sin(elapsed_time * self.chair_animation_speed * 0.5)) * 0.5
+                chair['vertical_offset'] = (
+                    abs(math.sin(elapsed_time * self.chair_animation_speed + phase_offset)) * self.chair_float_height +
+                    vertical_variation
+                )
+                
+                # Calculate new position with phase offset
+                x = math.cos(chair['angle'] + phase_offset) * self.chair_path_radius
+                z = math.sin(chair['angle'] + phase_offset) * self.chair_path_radius
+                y = chair['vertical_offset'] + self.chair_vertical_offset
+                
+                # Update target position
+                chair['target_position'] = [x, y, z]
+                
+                # Only update position if transition is complete
+                if chair['transition_progress'] >= 1:
+                    chair['cushion'].set_position(chair['target_position'])
+                    chair['base'].set_position(chair['target_position'])
+                
+                # Apply rotation with slight tilt
+                chair['cushion'].rotate_y(self.chair_rotation_speed * self.delta_time)
+                chair['base'].rotate_y(self.chair_rotation_speed * self.delta_time)
+                # Add slight tilt based on movement
+                tilt = math.sin(elapsed_time * self.chair_animation_speed + phase_offset) * 0.1
+                chair['cushion'].rotate_x(tilt)
+                chair['base'].rotate_x(tilt)
+        else:
+            # Reset chairs when drunkness drops
+            if self.chair_animation_active:
+                self.chair_animation_active = False
+                # Remove flying chairs from scene
+                for chair in self.flying_chairs:
+                    if chair['cushion'] in self.dynamic_scene._children_list:
+                        self.dynamic_scene.remove(chair['cushion'])
+                    if chair['base'] in self.dynamic_scene._children_list:
+                        self.dynamic_scene.remove(chair['base'])
+                self.flying_chairs.clear()
 
     def close_all_menus(self):
         self.show_menu = False
@@ -2405,7 +2596,14 @@ class Example(Base):
             self.animating_beer = True
 
     def lerp(self, start, end, t):
-        """Linear interpolation between start and end values"""
+        # Handle position lists (x,y,z coordinates)
+        if isinstance(start, list) and isinstance(end, list):
+            return [
+                start[0] + (end[0] - start[0]) * t,
+                start[1] + (end[1] - start[1]) * t,
+                start[2] + (end[2] - start[2]) * t
+            ]
+        # Handle single values
         return start + (end - start) * t
 
     def create_glass_fragments(self, impact_position, impact_velocity):
