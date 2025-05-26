@@ -1465,6 +1465,12 @@ class Example(Base):
         self.beer_animation_duration = 1.0  # seconds
 
     def handle_menu_change(self, new_state, new_button_list, old_button_list):
+        if self.menu_state == "settings" and new_state == "jukebox":
+            old_button_list = self.settings_buttons
+        elif self.menu_state == "sensitivity" and new_state == "jukebox":
+            old_button_list = self.sensitivity_buttons
+        elif self.menu_state == "brightness" and new_state == "jukebox":
+            old_button_list = self.brightness_buttons
         self.menu_state = new_state
         for mesh, *_ in old_button_list:
             self.hudScene.remove(mesh)
@@ -1518,21 +1524,25 @@ class Example(Base):
                 pygame.mixer.music.load("sounds/song1.mp3")
                 pygame.mixer.music.play()
                 self.song_playing = True
+                self.handle_menu_change("main", self.menu_buttons, self.jukebox_buttons)
                 self.show_menu = False
             elif action == "play_song2":
                 # pygame.mixer.music.load("sounds/song2.mp3")
                 pygame.mixer.music.play()
                 self.song_playing = True
+                self.handle_menu_change("main", self.menu_buttons, self.jukebox_buttons)
                 self.show_menu = False
             elif action == "play_song3":
                 # pygame.mixer.music.load("sounds/song3.mp3")
                 pygame.mixer.music.play()
                 self.song_playing = True
+                self.handle_menu_change("main", self.menu_buttons, self.jukebox_buttons)
                 self.show_menu = False
             elif action == "close_jukebox":
                 self.jukebox_menu_active = False
                 pygame.mixer.music.stop()
                 self.song_playing = False
+                self.handle_menu_change("main", self.menu_buttons, self.jukebox_buttons)
                 self.show_menu = False
         except Exception as e:
             print(f"Error handling button action '{action}': {e}")
@@ -1754,9 +1764,13 @@ class Example(Base):
             if self.input.is_key_pressed("e") and not self.jukebox_menu_active and not self.show_menu:
                 pygame.mouse.set_visible(True)
                 self.show_menu = True
-                self.menu_state = "jukebox"
-                self.handle_menu_change("jukebox", self.jukebox_buttons, self.menu_buttons)
+                if self.menu_state != "jukebox":
+                    self.handle_menu_change("jukebox", self.jukebox_buttons, self.menu_buttons)
 
+        else:
+            if self.jukebox_prompt in self.context_hud._children_list:
+                self.context_hud.remove(self.jukebox_prompt)
+            self.show_interaction_prompt = False
 
         # Só atualiza a câmera se nenhum menu estiver aberto
         if not self.jukebox_menu_active and not self.show_menu:
@@ -1907,6 +1921,7 @@ class Example(Base):
                 elif self.menu_state == "brightness":
                     self.handle_menu_change("settings", self.settings_buttons, self.brightness_buttons)
                 elif self.menu_state == "jukebox":
+                    self.handle_menu_change("main", self.menu_buttons, self.jukebox_buttons)
                     self.show_menu = not self.show_menu
                     pygame.mouse.set_visible(False)
             if not self.show_menu:
