@@ -387,7 +387,7 @@ class Example(Base):
         
         #ceiling lights
         for i in range(5):
-            ceilinglight = PointLight(color=[0.5,0.5,0.2],position=[-9 - i,3.5,12])
+            ceilinglight = PointLight(color=[0.2,0.2,0.5],position=[-9 - i,3.5,12])
             self.dynamic_scene.add(ceilinglight)
             self.dynamic_lights.append(ceilinglight)
             
@@ -396,29 +396,29 @@ class Example(Base):
         #BarInterior
         wall_geometry, floor_geometry, roof_geometry, door_geometry = BarGeometry(1, 1, 1, my_obj_reader('objects/interior.obj'))
         wall_material = self._get_cached_material(
-            "LambertMaterial",
-            texture=self._get_cached_texture("images/brick.jpg"),
-            bump_texture=self._get_cached_texture("images/brick-normal-map.png"),
+            "PhongMaterial",
+            texture=self._get_cached_texture("images/wall.png"),
+            bump_texture=self._get_cached_texture("images/wall_normal.png"),
             property_dict={"bumpStrength": 1},
             number_of_light_sources=self.light_number,
             use_shadow=True
         )
         floor_material = self._get_cached_material(
             "PhongMaterial",
-            texture=self._get_cached_texture("images/rubber_tiles.jpg"),
-            bump_texture=self._get_cached_texture("images/rubber_tiles_bump.png"),
+            texture=self._get_cached_texture("images/floor.png"),
+            bump_texture=self._get_cached_texture("images/floor_normal.png"),
             property_dict={"bumpStrength": 3},
             number_of_light_sources=self.light_number,
             use_shadow=True
         )
-        roof_material = LambertMaterial(
-            texture=Texture("images/tiles.jpg"),
-            bump_texture=Texture("images/tiles_bump.png"),
+        roof_material = PhongMaterial(
+            texture=Texture("images/roof.png"),
+            bump_texture=Texture("images/roof_normal.png"),
             property_dict={"bumpStrength": 3},
             number_of_light_sources=self.light_number,
             use_shadow=True
         )
-        door_material = LambertMaterial(
+        door_material = PhongMaterial(
             texture=Texture("images/door_texture.jpg"),
             bump_texture=Texture("images/door_bump.png"),
             property_dict={"bumpStrength": 3},
@@ -475,7 +475,7 @@ class Example(Base):
         #ceiling_lights
         circlelight_geo = SphereGeometry(radius=0.1)
         circlelight_material = SurfaceMaterial(
-            property_dict={"baseColor":[1, 1, 0.7]},
+            property_dict={"baseColor":[0.7, 0.7, 1]},
         )
         lightcable_geo = CylinderGeometry(radius=0.02,height=1.4)
         lightcable_material = LambertMaterial(
@@ -702,7 +702,7 @@ class Example(Base):
         cushion_geo = PuffchairGeometries.get("chaircushion")
         chairbase_geo = PuffchairGeometries.get("chairbase")
         cushion_material = LambertMaterial(
-            property_dict={"baseColor":[0.2, 0, 0]},
+            property_dict={"baseColor":[0.2, 0.2, 0.7]},
             number_of_light_sources=self.light_number,
             use_shadow=True,      
         )
@@ -737,6 +737,26 @@ class Example(Base):
                     [0, angle_rad + math.pi, 0]
                 )
                 
+        client_geo = CustomGeometry(1,1,1,my_obj_reader('objects/client.obj')).get("Body")
+        client1_material = LambertMaterial(
+            texture=Texture('images/afro_texture.png'),
+            number_of_light_sources=self.light_number,
+            use_shadow=True
+        )
+        client2_material = LambertMaterial(
+            texture=Texture('images/body_texture.png'),
+            number_of_light_sources=self.light_number,
+            use_shadow=True
+        )
+        client = Mesh(geometry=client_geo, material=client1_material)
+        client2 = Mesh(geometry=client_geo, material=client1_material)
+        client.rotate_y(math.radians(-90))
+        client.set_position([6.3,0.7,5])
+        self.static_scene.add(client)
+        client2.set_position([-5,0.7,-6.3])
+        self.static_scene.add(client2)
+        
+
         # Create chair meshes
         cushion_mesh = cushion_factory.build_mesh(self._create_instanced_mesh)
         chairbase_mesh = chairbase_factory.build_mesh(self._create_instanced_mesh)
@@ -746,7 +766,7 @@ class Example(Base):
         #RoundTables
         roundtable_geometry = CustomGeometry(1,1,1,my_obj_reader('objects/table.obj')).get("table")
         roundtable_material = LambertMaterial(
-            property_dict={"baseColor":[0.3, 0.2, 0]},
+            property_dict={"baseColor":[0.2, 0.2, 0.2]},
             number_of_light_sources=self.light_number,
             use_shadow=True
         )
@@ -769,17 +789,17 @@ class Example(Base):
         lampshade_geometry= LampGeometries.get("lampshade")
         switch_geometry= LampGeometries.get("switch")
         base_material = PhongMaterial(
-            property_dict={"baseColor":[1.0, 0.8, 0.0]},
+            property_dict={"baseColor":[0.1, 0.1, 0.1]},
             number_of_light_sources=self.light_number,
             use_shadow=True
         )
         lamp_material = PhongMaterial(
-            property_dict={"baseColor":[1.0, 1.0, 0.8]},
+            property_dict={"baseColor":[0.8, 0.8, 1]},
             number_of_light_sources=self.light_number,
             use_shadow=True
         )
         lampshade_material = PhongMaterial(
-            property_dict={"baseColor":[0.3, 0.8, 0.4]},
+            property_dict={"baseColor":[0.3, 0.2, 1]},
             number_of_light_sources=self.light_number,
             use_shadow=True
         )
@@ -910,8 +930,8 @@ class Example(Base):
         color2_material = SurfaceMaterial(property_dict={"baseColor": [0.0, 0.6, 0.6]})
         self.dancefloor_color1 = Mesh(geometry=color1_geo,material=color1_material)
         self.dancefloor_color2 = Mesh(geometry=color2_geo,material=color2_material)
-        self.dancefloor_color1.set_position([0,0.1,0])
-        self.dancefloor_color2.set_position([0,0.1,0])
+        self.dancefloor_color1.set_position([0,0.02,0])
+        self.dancefloor_color2.set_position([0,0.02,0])
         self.static_scene.add(self.dancefloor_color1)
         self.static_scene.add(self.dancefloor_color2)
 
@@ -2053,18 +2073,18 @@ class Example(Base):
             # Blue ON, Yellow OFF
             next_glow = self.blueSign
             next_color = self.dancefloor_color1
-            self.dancefloor_color1.material.set_properties(property_dict={"baseColor": [0.6,0.3,0.6]})
-            self.dancefloor_color2.material.set_properties(property_dict={"baseColor": [0.2,0.5,0.5]})
-            self.blueSign.material.set_properties(property_dict={"baseColor": [0,1,1]})
+            self.dancefloor_color1.material.set_properties(property_dict={"baseColor": [0.2,0.2,1]})
+            self.dancefloor_color2.material.set_properties(property_dict={"baseColor": [0.1,0.1,0.1]})
+            self.blueSign.material.set_properties(property_dict={"baseColor": [0.2,0.2,1]})
             self.yellowSign.material.set_properties(property_dict={"baseColor": [0,0,0]})
         else:
             # Yellow ON, Blue OFF
             next_glow = self.yellowSign
             next_color = self.dancefloor_color2
             self.blueSign.material.set_properties(property_dict={"baseColor": [0,0,0]})
-            self.yellowSign.material.set_properties(property_dict={"baseColor": [1,1,0]})
-            self.dancefloor_color1.material.set_properties(property_dict={"baseColor": [0.5,0.2,0.5]})
-            self.dancefloor_color2.material.set_properties(property_dict={"baseColor": [0.3,0.6,0.6]})
+            self.yellowSign.material.set_properties(property_dict={"baseColor": [0.8,0.8,1]})
+            self.dancefloor_color1.material.set_properties(property_dict={"baseColor": [0.1,0.1,0.2]})
+            self.dancefloor_color2.material.set_properties(property_dict={"baseColor": [0.8,0.8,0.8]})
 
         # Reset glow scene and add the correct glowing mesh
         self.glow_scene.remove(self.current_glow)
