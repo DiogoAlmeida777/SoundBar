@@ -18,9 +18,15 @@ def my_obj_reader(filename):
             elif tokens[0] == 'vn':
                 normals.append([float(v) for v in tokens[1:]])
             elif tokens[0] == 'usemtl':
-                current_material = tokens[1]
-                if current_material not in materials:
-                    materials[current_material] = {"positions": [], "uvs": [], "normals": []}
+                if len(tokens) > 1:  # Check if material name exists
+                    current_material = tokens[1]
+                    if current_material not in materials:
+                        materials[current_material] = {"positions": [], "uvs": [], "normals": []}
+                else:
+                    # Handle empty usemtl lines by using a default material
+                    current_material = "default"
+                    if current_material not in materials:
+                        materials[current_material] = {"positions": [], "uvs": [], "normals": []}
             elif tokens[0] == 'f':
                 face = [value.split('/') for value in tokens[1:]]
                 for vertex_info in face:
