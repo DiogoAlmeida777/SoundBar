@@ -1,0 +1,117 @@
+# Blender 4.3.2 MTL File: 'snooker_table_5.blend'
+# www.blender.org
+
+newmtl Baize
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 2
+map_Kd textures/Table_clean/Baize/snooker_table_Baize_BaseColor.png
+map_Ns textures/Table_clean/Baize/snooker_table_Baize_Roughness.png
+map_refl textures/Table_clean/Baize/snooker_table_Baize_Metallic.png
+map_Bump -bm 1.000000 textures/Table_clean/Baize/snooker_table_Baize_Normal.png
+
+newmtl Balls
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 2
+map_Kd textures/Balls/balls_BaseColor.png
+map_Ns textures/Balls/balls_Roughness.png
+map_Bump -bm 1.000000 textures/Balls/balls_Normal.png
+
+newmtl Cues
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 2
+map_Kd textures/cue/cues_Cues_BaseColor.png
+map_Ns textures/cue/cues_Cues_Roughness.png
+map_refl textures/cue/cues_Cues_Metallic.png
+map_Bump -bm 1.000000 textures/cue/cues_Cues_Normal.png
+
+newmtl Leg_holders
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 2
+map_Kd textures/Table_clean/Leg_holders/snooker_table_Leg_holders_BaseColor.png
+map_Ns textures/Table_clean/Leg_holders/snooker_table_Leg_holders_Roughness.png
+map_refl textures/Table_clean/Leg_holders/snooker_table_Leg_holders_Metallic.png
+map_Bump -bm 1.000000 textures/Table_clean/Leg_holders/snooker_table_Leg_holders_Normal.png
+
+newmtl Legs
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 2
+map_Kd textures/Table_clean/Legs/snooker_table_Legs_BaseColor.png
+map_Ns textures/Table_clean/Legs/snooker_table_Legs_Roughness.png
+map_refl textures/Table_clean/Legs/snooker_table_Legs_Metallic.png
+map_Bump -bm 1.000000 textures/Table_clean/Legs/snooker_table_Legs_Normal.png
+
+newmtl Pin
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 2
+map_Kd textures/Table_clean/Pin/snooker_table_Pin_BaseColor.png
+map_Ns textures/Table_clean/Pin/snooker_table_Pin_Roughness.png
+map_refl textures/Table_clean/Pin/snooker_table_Pin_Metallic.png
+map_Bump -bm 1.000000 textures/Table_clean/Pin/snooker_table_Pin_Normal.png
+
+newmtl Pot_corner
+Ns 360.000000
+Ka 1.000000 1.000000 1.000000
+Kd 0.800000 0.800000 0.800000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.000000
+d 1.000000
+illum 2
+
+newmtl Pot_middle
+Ns 360.000000
+Ka 1.000000 1.000000 1.000000
+Kd 0.800000 0.800000 0.800000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.000000
+d 1.000000
+illum 2
+
+newmtl cue_box
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 2
+map_Kd textures/cue/cues_cue box_BaseColor.png
+map_Ns textures/cue/cues_cue box_Roughness.png
+map_refl textures/cue/cues_cue box_Metallic.png
+map_Bump -bm 1.000000 textures/cue/cues_cue box_Normal.png
+
+newmtl cushion
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 2
+map_Kd textures/Table_clean/Cushion/snooker_table_cushion_BaseColor.png
+map_Ns textures/Table_clean/Cushion/snooker_table_cushion_Roughness.png
+map_refl textures/Table_clean/Cushion/snooker_table_cushion_Metallic.png
+map_Bump -bm 1.000000 textures/Table_clean/Cushion/snooker_table_cushion_Normal.png

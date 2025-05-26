@@ -67,6 +67,7 @@ from geometry.custom import CustomGeometry
 from geometry.jukebox import JukeboxGeometry
 from geometry.geometry import Geometry
 from geometry.box import BoxGeometry
+from geometry.snooker_table import SnookerTableGeometry
 
 MAX_BEER_AMOUNT_PER_BOTTLE = 50
 
@@ -459,6 +460,93 @@ class Example(Base):
         table = Mesh(geometry=table_geometry,material=table_material)
         table.set_position([14,0,-14])
         self.static_scene.add(table)
+        
+        #Snooker Table
+        baize_geo, balls_geo, cues_geo, leg_holders_geo, legs_geo, pin_geo, pot_corner_geo, pot_middle_geo, cue_box_geo, cushion_geo = SnookerTableGeometry(1, 1, 1, my_obj_reader("objects/snooker_table_5.obj"))
+        
+        # Create materials for different components
+        baize_material = LambertMaterial(
+            property_dict={"baseColor": [0.1, 0.6, 0.1]},  # Green felt color
+            number_of_light_sources=self.light_number,
+            use_shadow=True
+        )
+        legs_material = LambertMaterial(
+            property_dict={"baseColor": [0.4, 0.2, 0.1]},  # Brown wood color
+            number_of_light_sources=self.light_number,
+            use_shadow=True
+        )
+        balls_material = PhongMaterial(
+            property_dict={"baseColor": [0.8, 0.0, 0.0]},  # Red color for snooker balls
+            number_of_light_sources=self.light_number,
+            use_shadow=True
+        )
+        metal_material = PhongMaterial(
+            property_dict={"baseColor": [0.3, 0.3, 0.3]},  # Metal components
+            number_of_light_sources=self.light_number,
+            use_shadow=True
+        )
+        pocket_material = LambertMaterial(
+            property_dict={"baseColor": [0.1, 0.1, 0.1]},  # Black pockets
+            number_of_light_sources=self.light_number,
+            use_shadow=True
+        )
+        cue_material = LambertMaterial(
+            property_dict={"baseColor": [0.6, 0.4, 0.2]},  # Wood cues
+            number_of_light_sources=self.light_number,
+            use_shadow=True
+        )
+        
+        # Create meshes for each component that exists
+        if baize_geo:
+            baize_mesh = Mesh(geometry=baize_geo, material=baize_material)
+            baize_mesh.set_position([-12, 0, -8])
+            self.static_scene.add(baize_mesh)
+            
+        if legs_geo:
+            legs_mesh = Mesh(geometry=legs_geo, material=legs_material)
+            legs_mesh.set_position([-12, 0, -8])
+            self.static_scene.add(legs_mesh)
+            
+        if balls_geo:
+            balls_mesh = Mesh(geometry=balls_geo, material=balls_material)
+            balls_mesh.set_position([-12, 0, -8])
+            self.static_scene.add(balls_mesh)
+            
+        if cushion_geo:
+            cushion_mesh = Mesh(geometry=cushion_geo, material=legs_material)
+            cushion_mesh.set_position([-12, 0, -8])
+            self.static_scene.add(cushion_mesh)
+            
+        if leg_holders_geo:
+            leg_holders_mesh = Mesh(geometry=leg_holders_geo, material=metal_material)
+            leg_holders_mesh.set_position([-12, 0, -8])
+            self.static_scene.add(leg_holders_mesh)
+            
+        if pin_geo:
+            pin_mesh = Mesh(geometry=pin_geo, material=metal_material)
+            pin_mesh.set_position([-12, 0, -8])
+            self.static_scene.add(pin_mesh)
+            
+        if pot_corner_geo:
+            pot_corner_mesh = Mesh(geometry=pot_corner_geo, material=pocket_material)
+            pot_corner_mesh.set_position([-12, 0, -8])
+            self.static_scene.add(pot_corner_mesh)
+            
+        if pot_middle_geo:
+            pot_middle_mesh = Mesh(geometry=pot_middle_geo, material=pocket_material)
+            pot_middle_mesh.set_position([-12, 0, -8])
+            self.static_scene.add(pot_middle_mesh)
+            
+        if cues_geo:
+            cues_mesh = Mesh(geometry=cues_geo, material=cue_material)
+            cues_mesh.set_position([-12, 0, -8])
+            self.static_scene.add(cues_mesh)
+            
+        if cue_box_geo:
+            cue_box_mesh = Mesh(geometry=cue_box_geo, material=legs_material)
+            cue_box_mesh.set_position([-12, 0, -8])
+            self.static_scene.add(cue_box_mesh)
+
         #Sonic
         tv_geometry = CustomGeometry(1,1,1,my_obj_reader("objects/television.obj")).get("tv")
         tv_material = PhongMaterial(
@@ -2478,6 +2566,9 @@ class Example(Base):
             
         # Add TV table
         self.bottle_collision_manager.add_collision_object([14, 0, -14], [2, 0, 1.5], height=1.5, name="Bottle_TV_Table")
+        
+        # Add snooker table
+        self.bottle_collision_manager.add_collision_object([-12, 0, -8], [3, 0, 1.5], height=1.0, name="Bottle_Snooker_Table")
         
     def _setup_pictures(self):
         """Coloca um quadro de cada imagem na parede lateral, alinhados, centralizados e com tamanho ajustado"""
