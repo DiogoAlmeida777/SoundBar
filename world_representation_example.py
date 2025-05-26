@@ -1752,7 +1752,14 @@ class Example(Base):
 
 
     def update(self):
-        # Update camera position for light culling
+        
+        
+        # Check for P key press to play Song 1
+        keys = pygame.key.get_pressed()
+        if keys[pygame.K_p] and not self.song_playing:
+            pygame.mixer.music.load("sounds/song1.mp3")
+            pygame.mixer.music.play()
+            self.song_playing = True
 
         # Update HarmonicaPlayer animation
         # Update animation time
