@@ -344,6 +344,9 @@ class Example(Base):
         self.scene.add(self.static_scene)
         self.scene.add(self.dynamic_scene)
         
+        # Setup frames
+        self._setup_pictures()
+        
         # Initialize bottle collision system now that static_scene exists
         self.bottle_collision_manager = CollisionManager(self.static_scene)
         self._setup_bottle_collision_objects()
@@ -502,9 +505,9 @@ class Example(Base):
         
         #BarStand
         barstand_geometry = CustomGeometry(1,1,1,my_obj_reader('objects/barstand.obj')).get("barstand")
-        barstand_material = PhongMaterial(
-            texture=Texture("images/darkwood.jpg"),
-            bump_texture=Texture("images/TableWood_Normal.jpg"),
+        barstand_material = LambertMaterial(
+            texture=Texture("images/metal2.jpg"), # Textura de metal
+            bump_texture=Texture("images/metal2_normal.png"), # Corrigido para .png
             number_of_light_sources=self.light_number,
             use_shadow=True
         )
@@ -539,9 +542,9 @@ class Example(Base):
 
         #Shelf
         shelf_geometry = CustomGeometry(1,1,1,my_obj_reader('objects/shelf.obj')).get("shelf")
-        shelf_material = PhongMaterial(
-            texture=Texture("images/darkwood.jpg"),
-            bump_texture=Texture("images/TableWood_Normal.jpg"),
+        shelf_material = LambertMaterial(
+            texture=Texture("images/metal2.jpg"), # Textura de metal
+            bump_texture=Texture("images/metal2_normal.png"), # Corrigido para .png
             number_of_light_sources=self.light_number,
             use_shadow=True
         )
@@ -971,6 +974,25 @@ class Example(Base):
         exitsign.set_position([12.1,2.5,15])
         self.static_scene.add(exitsign)
 
+        #JUkeboxSign
+        jukeboxsign_geo = CustomGeometry(1,1,1,my_obj_reader('objects/jukeboxneonsign.obj')).get("neon")
+        jukeboxsign_material = SurfaceMaterial(property_dict={"baseColor": [0.8, 0.0, 0.4]}) # Cor alterada para rosa escuro
+        jukeboxsign = Mesh(geometry=jukeboxsign_geo,material=jukeboxsign_material)
+
+        # Escalar o neon pela metade manipulando a local_matrix
+        scale_factor = 0.5
+        scale_matrix = np.array([
+            [scale_factor, 0.0, 0.0, 0.0],
+            [0.0, scale_factor, 0.0, 0.0],
+            [0.0, 0.0, scale_factor, 0.0],
+            [0.0, 0.0, 0.0, 1.0]
+        ])
+        jukeboxsign.local_matrix = jukeboxsign.local_matrix @ scale_matrix
+
+        jukeboxsign.rotate_y(math.radians(180))
+        jukeboxsign.set_position([1.95, 1.5, 14.5]) # Aumentei a coordenada Y para subir o neon
+        self.static_scene.add(jukeboxsign)
+
         #Jukebox
         wood_geo, neon_geo, metal_geo, red_geo, metalmesh_geo, selectcoin_geo, selectsong_geo, vinyl_geo, songs1_geo, songs2_geo, glass_geo = JukeboxGeometry(1,1,1,my_obj_reader('objects/jukebox.obj'))
         wood_material = LambertMaterial(
@@ -1223,6 +1245,9 @@ class Example(Base):
 
         #exit sign
         self.glow_scene.add(exitsign)
+
+        #jukebox sign
+        self.glow_scene.add(jukeboxsign)
 
         #spotlight
         self.glow_scene.add(self.light)
@@ -1829,7 +1854,7 @@ class Example(Base):
                     self.beers_drank += 1
                 self.bottle_can_throw = True
                 print(f"Beers drank: {self.beers_drank}")
-                if self.beers_drank <= 12:
+                if self.beers_drank < 12:
                     self.DRUNKNESS = self.beers_drank
                     self.beer_icon_mesh.material = TextureMaterial(self.beer_icon_textures[self.beers_drank])
                 
@@ -2443,6 +2468,43 @@ class Example(Base):
         # Add TV table
         self.bottle_collision_manager.add_collision_object([14, 0, -14], [2, 0, 1.5], height=1.5, name="Bottle_TV_Table")
         
+    def _setup_pictures(self):
+        """Coloca um quadro de cada imagem na parede lateral, alinhados, centralizados e com tamanho ajustado"""
+        import numpy as np
+        width = 2.5   # Tamanho da largura (ligeiramente diminuído)
+        height = width * 1.5 # Altura calculada para proporção 2:3
+        x = 14.9      # Parede lateral direita
+        y = 2.5       # Altura de alinhamento na parede
+
+        picture_files = [
+            "images/quadro1.jpg",
+            "images/quadro2.jpg",
+            "images/quadro3.jpg",
+            "images/quadro4.jpg",
+            "images/quadro5.jpg",
+            "images/quadro6.jpg",
+            "images/quadro7.jpg",
+        ]
+
+        # Calcular a posição inicial para centralizar o bloco de quadros na parede lateral em Z
+        total_width = len(picture_files) * width  # Largura total ocupada pelos quadros
+        spacing = 0.3 # Espaço entre os quadros
+        total_occupied_z = total_width + (len(picture_files) - 1) * spacing
+        z_start = -total_occupied_z / 2.0 # Ponto de início para centralizar o bloco
+
+        current_z = z_start
+
+        # Criar e posicionar cada quadro individualmente
+        for img in picture_files:
+            geo = RectangleGeometry(width, height)
+            tex = Texture(img)
+            mat = TextureMaterial(tex)
+            mesh = Mesh(geo, mat)
+            mesh.set_position([x, y, current_z])
+            mesh.rotate_y(math.radians(-90))
+            self.static_scene.add(mesh)
+            current_z += width + spacing # Atualizar a posição para o próximo quadro
+
 def run_example(resolution=(1920, 1080)):
     Example(screen_size=resolution).run()
 

@@ -1,0 +1,34 @@
+# Frame object
+mtllib frame.mtl
+usemtl frame
+
+v -0.5 -0.5 -0.05
+v  0.5 -0.5 -0.05
+v  0.5  0.5 -0.05
+v -0.5  0.5 -0.05
+v -0.5 -0.5  0.05
+v  0.5 -0.5  0.05
+v  0.5  0.5  0.05
+v -0.5  0.5  0.05
+
+# Faces do quadro
+f 1 2 3 4  # Frente
+f 5 6 7 8  # Trás
+f 1 2 6 5  # Baixo
+f 2 3 7 6  # Direita
+f 3 4 8 7  # Cima
+f 4 1 5 8  # Esquerda
+
+# Coordenadas de textura
+vt 0 0
+vt 1 0
+vt 1 1
+vt 0 1
+
+# Normais
+vn 0 0 1
+vn 0 0 -1
+vn 0 -1 0
+vn 1 0 0
+vn 0 1 0
+vn -1 0 0 
