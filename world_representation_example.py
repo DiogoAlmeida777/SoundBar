@@ -389,10 +389,10 @@ class Example(Base):
         self.renderer.enable_shadows(directional_light)
 
         #PointLights
-        # Table positions
-        table_positions = [[-5, 0, -5], [-5, 0, 5], [5, 0, -5], [5, 0, 5]]
-        for i in range(4):
-            pointlight = PointLight(color=[0.8,1,0.8],position=(table_positions[i] + np.array([0,1.45,0])))
+        # Table positions (incluindo duas novas mesas à direita do palco, descoordenadas em Z e afastadas da parede)
+        table_positions = [[-5, 0, -5], [-5, 0, 5], [5, 0, -5], [5, 0, 5], [11, 0, -10], [11, 0, 0]]
+        for pos in table_positions:
+            pointlight = PointLight(color=[0.8,1,0.8],position=(pos + np.array([0,1.45,0])))
             self.dynamic_scene.add(pointlight)
             self.dynamic_lights.append(pointlight)
         
@@ -781,18 +781,12 @@ class Example(Base):
             number_of_light_sources=self.light_number,
             use_shadow=True
         )
-        roundtable1 = Mesh(geometry=roundtable_geometry,material=roundtable_material)
-        roundtable1.set_position(table_positions[0])
-        roundtable2 = Mesh(geometry=roundtable_geometry,material=roundtable_material)
-        roundtable2.set_position(table_positions[1])
-        roundtable3 = Mesh(geometry=roundtable_geometry,material=roundtable_material)
-        roundtable3.set_position(table_positions[2])
-        roundtable4 = Mesh(geometry=roundtable_geometry,material=roundtable_material)
-        roundtable4.set_position(table_positions[3])
-        self.static_scene.add(roundtable1)
-        self.static_scene.add(roundtable2)
-        self.static_scene.add(roundtable3)
-        self.static_scene.add(roundtable4)
+        # Criar uma mesa para cada posição na lista table_positions
+        for pos in table_positions:
+            roundtable = Mesh(geometry=roundtable_geometry,material=roundtable_material)
+            roundtable.set_position(pos)
+            self.static_scene.add(roundtable)
+
         #lamps
         LampGeometries = CustomGeometry(1,1,1,my_obj_reader('objects/lamp.obj'))
         base_geometry = LampGeometries.get("base")
@@ -2443,7 +2437,8 @@ class Example(Base):
     def _setup_bottle_collision_objects(self):
         """Setup collision objects for bottle physics"""
         # Add tables with appropriate height
-        table_positions = [[-5, 0, -5], [-5, 0, 5], [5, 0, -5], [5, 0, 5]]
+        # Table positions (incluindo as novas mesas, descoordenadas em Z e afastadas da parede)
+        table_positions = [[-5, 0, -5], [-5, 0, 5], [5, 0, -5], [5, 0, 5], [10, 0, -10], [10, 0, 0]]
         for i, pos in enumerate(table_positions):
             self.bottle_collision_manager.add_collision_object(pos, [2, 0, 2], height=1.5, name=f"Bottle_Table_{i+1}")
             
