@@ -46,7 +46,7 @@ class MovementRig(Object3D):
     def _setup_collision_objects(self):
         """Setup collision objects for the bar"""
         # Add tables with appropriate height
-        table_positions = [[-5, 0, -5], [-5, 0, 5], [5, 0, -5], [5, 0, 5]]
+        table_positions = [[-5, 0, -5], [-5, 0, 5], [5, 0, -5], [5, 0, 5], [11, 0, -10], [11, 0, 0]]
         for i, pos in enumerate(table_positions):
             self._collision_manager.add_collision_object(pos, [2, 0, 2], height=1.5, name=f"Table_{i+1}")
             
@@ -71,13 +71,16 @@ class MovementRig(Object3D):
         self._collision_manager.add_collision_object([-11, 0, 13], [0.65, 0, 0.65], height=2.0, name="Barman")
         
         # Add musician on stage collision (same size as barman)
-        self._collision_manager.add_collision_object([0, 0, -10], [0.65, 0, 0.65], height=2.5, name="Musician")
+        self._collision_manager.add_collision_object([0, 0, -10], [0.65, 0, 0.65], height=2.3, name="Musician")
 
         # Add stage wireframe structure (metal framework)
         # Left vertical support
         self._collision_manager.add_collision_object([-4, 0, -10], [0.75, 0, 0.75], height=6.0, name="Stage_Support_Left")
         # Right vertical support  
         self._collision_manager.add_collision_object([4, 0, -10], [0.75, 0, 0.75], height=6.0, name="Stage_Support_Right")
+        
+        # Add snooker table
+        self._collision_manager.add_collision_object([-12, 0, -10], [2.5, 0, 3.8], height=0.9, name="Snooker_Table")
 
         # Add barstools with appropriate height
         for i in range(4):
@@ -85,6 +88,7 @@ class MovementRig(Object3D):
             
         # Add TV table with appropriate height
         self._collision_manager.add_collision_object([14, 0, -14], [2, 0, 1.5], height=1.5, name="TV_Table")
+        
         
 
     # Adding and removing objects applies to look attachment.
