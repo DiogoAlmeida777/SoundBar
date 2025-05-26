@@ -403,7 +403,13 @@ class Example(Base):
             self.dynamic_scene.add(ceilinglight)
             self.dynamic_lights.append(ceilinglight)
             
-        self.light_number = 12
+        # Snooker table ceiling lights
+        for i in range(3):
+            snooker_ceilinglight = PointLight(color=[0.2,0.2,0.5],position=[-12,3.5,-10.8 + i])
+            self.dynamic_scene.add(snooker_ceilinglight)
+            self.dynamic_lights.append(snooker_ceilinglight)
+            
+        self.light_number = 15
 
         #BarInterior
         wall_geometry, floor_geometry, roof_geometry, door_geometry = BarGeometry(1, 1, 1, my_obj_reader('objects/interior.obj'))
@@ -590,6 +596,16 @@ class Example(Base):
             self.static_scene.add(circlelight)
             self.static_scene.add(lightcable)
             self.glow_scene.add(circlelight)
+        
+        # Snooker table ceiling lights visual elements
+        for i in range(3):
+            snooker_lightcable = Mesh(geometry=lightcable_geo,material=lightcable_material)
+            snooker_circlelight = Mesh(geometry=circlelight_geo, material=circlelight_material)
+            snooker_circlelight.set_position([-12,3.5,-10.8 + i])
+            snooker_lightcable.set_position([-12,4.3,-10.8 + i])
+            self.static_scene.add(snooker_circlelight)
+            self.static_scene.add(snooker_lightcable)
+            self.glow_scene.add(snooker_circlelight)
         
         #BarStand
         barstand_geometry = CustomGeometry(1,1,1,my_obj_reader('objects/barstand.obj')).get("barstand")
@@ -2526,7 +2542,7 @@ class Example(Base):
         """Setup collision objects for bottle physics"""
         # Add tables with appropriate height
         # Table positions (incluindo as novas mesas, descoordenadas em Z e afastadas da parede)
-        table_positions = [[-5, 0, -5], [-5, 0, 5], [5, 0, -5], [5, 0, 5], [10, 0, -10], [10, 0, 0]]
+        table_positions = [[-5, 0, -5], [-5, 0, 5], [5, 0, -5], [5, 0, 5], [11, 0, -10], [11, 0, 0]]
         for i, pos in enumerate(table_positions):
             self.bottle_collision_manager.add_collision_object(pos, [2, 0, 2], height=1.5, name=f"Bottle_Table_{i+1}")
             
@@ -2548,7 +2564,7 @@ class Example(Base):
         self.bottle_collision_manager.add_collision_object([4, 0, -10], [0.75, 0, 0.75], height=6.0, name="Bottle_Stage_Support_Right")
 
         # Add musician on stage collision (same size as barman)
-        self.bottle_collision_manager.add_collision_object([0, 0, -10], [0.65, 0, 0.65], height=2.5, name="Bottle_Musician")
+        self.bottle_collision_manager.add_collision_object([0, 0, -10], [0.65, 0, 0.65], height=2.3, name="Bottle_Musician")
         
         # Add jukebox
         self.bottle_collision_manager.add_collision_object([0, 0, 14.5], [1.5, 0, 1.4], height=1.7, name="Bottle_Jukebox")
@@ -2567,7 +2583,11 @@ class Example(Base):
         self.bottle_collision_manager.add_collision_object([14, 0, -14], [2, 0, 1.5], height=1.5, name="Bottle_TV_Table")
         
         # Add snooker table
-        self.bottle_collision_manager.add_collision_object([-12, 0, -8], [3, 0, 1.5], height=1.0, name="Bottle_Snooker_Table")
+        self.bottle_collision_manager.add_collision_object([-12, 0, -10], [2.5, 0, 3.8], height=0.9, name="Bottle_Snooker_Table")
+        
+        # Add seated clients collision
+        self.bottle_collision_manager.add_collision_object([6.3, 0, 5], [0.6, 0, 0.6], height=1.74, name="Bottle_Client_1")
+        self.bottle_collision_manager.add_collision_object([-5, 0, -6.3], [0.6, 0, 0.6], height=1.74, name="Bottle_Client_2")
         
     def _setup_pictures(self):
         """Coloca um quadro de cada imagem na parede lateral, alinhados, centralizados e com tamanho ajustado"""
