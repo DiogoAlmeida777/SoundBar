@@ -2080,9 +2080,13 @@ class Example(Base):
                 light._color = dynamic_color
         else:
             self.song_color_timer = 0.0
-            # Reseta os lightcones para o estado padrão quando não há música
-            for lightcone in self.lightcones:
-                lightcone.material.set_properties(property_dict={"baseColor": [1,1,1], "opacity": 0.2})
+            # Mantém os lightcones piscando em branco quando não há música
+            for i, lightcone in enumerate(self.lightcones):
+                should_light = (math.sin(self.time * 2 + i * math.pi/4) + 1) / 2 > 0.5
+                if should_light:
+                    lightcone.material.set_properties(property_dict={"baseColor": [1,1,1], "opacity": 0.2})
+                else:
+                    lightcone.material.set_properties(property_dict={"baseColor": [1,1,1], "opacity": 0.0})
 
         # Update neon color using set_properties instead of creating new material
         rainbow_color = self.get_rainbow_color(self.time)
