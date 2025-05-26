@@ -29,6 +29,7 @@ from extras.movement_rig import MovementRig
 from extras.postprocessor import Postprocessor
 from extras.directional_light import DirectionalLightHelper
 from extras.point_light import PointLightHelper
+from extras.collision_manager import CollisionManager
 #material imports
 from material.surface import SurfaceMaterial
 from material.texture import TextureMaterial
@@ -182,6 +183,7 @@ class Example(Base):
             [1.0, 0.0, 1.0],  # Magenta
             [0.0, 1.0, 1.0]   # Cyan
         ]
+        # Bottle collision system will be initialized in initialize() method
 
     def _get_cached_texture(self, texture_path):
         """Get a cached texture or create and cache a new one"""
@@ -314,9 +316,13 @@ class Example(Base):
         self.scene.add(self.static_scene)
         self.scene.add(self.dynamic_scene)
         
+        # Initialize bottle collision system now that static_scene exists
+        self.bottle_collision_manager = CollisionManager(self.static_scene)
+        self._setup_bottle_collision_objects()
+        
         # Camera setup
         self.camera = Camera(aspect_ratio=1920/1080)
-        self.rig = MovementRig()
+        self.rig = MovementRig(debug_scene=self.static_scene)  # Pass static scene for debug boxes
         self.rig.add(self.camera)
         self.rig.set_position([11.5, 1.5, 14])
         self.dynamic_scene.add(self.rig)  # Camera is dynamic
@@ -502,7 +508,6 @@ class Example(Base):
         self.body.local_matrix = self.head.local_matrix
         self.dynamic_scene.add(self.head)
         self.static_scene.add(self.body)
-
 
         #Shelf
         shelf_geometry = CustomGeometry(1,1,1,my_obj_reader('objects/shelf.obj')).get("shelf")
@@ -1481,8 +1486,6 @@ class Example(Base):
     def update(self):
         # Update camera position for light culling
 
-        print(self.DRUNKNESS)
-
         # Update HarmonicaPlayer animation
         # Update animation time
         self.harmonica_animation_time = (self.time * self.harmonica_animation_speed) % self.harmonica_animation_duration
@@ -1761,13 +1764,17 @@ class Example(Base):
             self.bottle_velocity[1] += self.bottle_gravity * self.delta_time
             new_pos = current_pos + self.bottle_velocity * self.delta_time
             
-            # Check for collision with floor (y = 0)
-            if new_pos[1] <= 0:
-                # Play bottle break sound when it hits the floor
+            # Check for collision with objects using CollisionManager
+            bottle_radius = 0.1  # Small radius for bottle collision
+            collision_detected = self.bottle_collision_manager.check_collision(new_pos, bottle_radius)
+            
+            # Check for collision with floor (y = 0) OR with objects
+            if new_pos[1] <= 0 or collision_detected:
+                # Play bottle break sound when it hits something
                 self.bottle_break_channel.play(self.bottle_break_sound)
                 
                 # Create glass fragments at impact position
-                impact_position = [new_pos[0], 0, new_pos[2]]
+                impact_position = [new_pos[0], max(0, new_pos[1]), new_pos[2]]  # Ensure Y is not negative
                 self.create_glass_fragments(impact_position, self.bottle_velocity)
                 
                 self.dynamic_scene.remove(self.BEER)
@@ -2292,6 +2299,49 @@ class Example(Base):
         for fragment in fragments_to_remove:
             self.glass_fragments.remove(fragment)
 
+    def _setup_bottle_collision_objects(self):
+        """Setup collision objects for bottle physics"""
+        # Add tables with appropriate height
+        table_positions = [[-5, 0, -5], [-5, 0, 5], [5, 0, -5], [5, 0, 5]]
+        for i, pos in enumerate(table_positions):
+            self.bottle_collision_manager.add_collision_object(pos, [2, 0, 2], height=1.5, name=f"Bottle_Table_{i+1}")
+            
+        # Add bar stand components
+        self.bottle_collision_manager.add_collision_object([-8.7, 0, 12], [1, 0, 1], height=1, name="Bottle_Bar_Front")
+        self.bottle_collision_manager.add_collision_object([-10.9, 0, 12], [4.4, 0, 1.5], height=1, name="Bottle_Bar_Back")  # Increased width and depth to cover full bar
+        self.bottle_collision_manager.add_collision_object([-8.7, 0, 13.3], [1, 0, 1.8], height=1, name="Bottle_Bar_Side")
+        
+        # Add stage
+        self.bottle_collision_manager.add_collision_object([0, 0, -13.5], [6, 0, 6], height=0.5, name="Bottle_Stage")
+        
+        # Add circular stage area where musicians are (round part) - more precise
+        self.bottle_collision_manager.add_collision_object([0, 0, -10.5], [4.5, 0, 4.5], height=0.5, name="Bottle_Stage_Round")
+        
+        # Add stage wireframe structure (metal framework)
+        # Left vertical support
+        self.bottle_collision_manager.add_collision_object([-4, 0, -10], [0.75, 0, 0.75], height=6.0, name="Bottle_Stage_Support_Left")
+        # Right vertical support  
+        self.bottle_collision_manager.add_collision_object([4, 0, -10], [0.75, 0, 0.75], height=6.0, name="Bottle_Stage_Support_Right")
+
+        # Add musician on stage collision (same size as barman)
+        self.bottle_collision_manager.add_collision_object([0, 0, -10], [0.65, 0, 0.65], height=2.5, name="Bottle_Musician")
+        
+        # Add jukebox
+        self.bottle_collision_manager.add_collision_object([0, 0, 14.5], [1.5, 0, 1.4], height=1.7, name="Bottle_Jukebox")
+        
+        # Add shelf
+        self.bottle_collision_manager.add_collision_object([-11.1, 0, 14.8], [4, 0, 0.9], height=3.2, name="Bottle_Shelf")
+        
+        # Add barman collision
+        self.bottle_collision_manager.add_collision_object([-11, 0, 13], [0.65, 0, 0.65], height=2.0, name="Bottle_Barman")
+        
+        # Add barstools
+        for i in range(4):
+            self.bottle_collision_manager.add_collision_object([-12.5 + i, 0, 11], [0.3, 0, 0.3], height=1.0, name=f"Bottle_Barstool_{i+1}")
+            
+        # Add TV table
+        self.bottle_collision_manager.add_collision_object([14, 0, -14], [2, 0, 1.5], height=1.5, name="Bottle_TV_Table")
+        
 def run_example(resolution=(1920, 1080)):
     Example(screen_size=resolution).run()
 
