@@ -88,7 +88,7 @@ class Example(Base):
         self.stepping_channel = pygame.mixer.Channel(0)
 
         self.burp_sound = pygame.mixer.Sound("sounds/burp.mp3")
-        self.burp_sound.set_volume(0.03) # Diminuir o volume do som do arroto
+        self.burp_sound.set_volume(0.07) # Diminuir o volume do som do arroto
         self.burp_channel = pygame.mixer.Channel(3)
 
         self.bottle_break_sound = pygame.mixer.Sound("sounds/bottle-break.mp3")
@@ -797,7 +797,7 @@ class Example(Base):
         stage.set_position([0,0,-11.5])
         self.static_scene.add(stage)
         frame_material = LambertMaterial(
-            property_dict={"baseColor":[0.2, 0.1, 0]},
+            property_dict={"baseColor":[0.1, 0.1, 0.2]},
             number_of_light_sources=self.light_number,
             use_shadow=True
         )
@@ -805,7 +805,7 @@ class Example(Base):
         frame.local_matrix = stage.local_matrix
         self.static_scene.add(frame)
         cloth_material = PhongMaterial(
-            property_dict={"baseColor":[0.5, 0, 0]},
+            property_dict={"baseColor":[0.5, 0, 0.2]},
             number_of_light_sources=self.light_number,
             use_shadow=True
         )
@@ -816,7 +816,7 @@ class Example(Base):
         cloth2.local_matrix = stage.local_matrix
         self.static_scene.add(cloth2)
         backstage_material = PhongMaterial(
-            property_dict={"baseColor": [0.8,0.8,0.6]},
+            property_dict={"baseColor": [0.1,0.1,0.1]},
             number_of_light_sources=self.light_number,
             use_shadow=True
         )
@@ -1091,8 +1091,9 @@ class Example(Base):
 
         #JUkeboxSign
         jukeboxsign_geo = CustomGeometry(1,1,1,my_obj_reader('objects/jukeboxneonsign.obj')).get("neon")
-        jukeboxsign_material = SurfaceMaterial(property_dict={"baseColor": [0.8, 0.0, 0.4]}) # Cor alterada para rosa escuro
-        jukeboxsign = Mesh(geometry=jukeboxsign_geo,material=jukeboxsign_material)
+        jukeboxsign_material = SurfaceMaterial(property_dict={"baseColor": [0.8, 0.2, 0.2]}) # Cor alterada para rosa escuro
+        self.jukeboxsign = Mesh(geometry=jukeboxsign_geo,material=jukeboxsign_material)
+
 
         # Escalar o neon pela metade manipulando a local_matrix
         scale_factor = 0.5
@@ -1102,12 +1103,25 @@ class Example(Base):
             [0.0, 0.0, scale_factor, 0.0],
             [0.0, 0.0, 0.0, 1.0]
         ])
-        jukeboxsign.local_matrix = jukeboxsign.local_matrix @ scale_matrix
+        self.jukeboxsign.local_matrix = self.jukeboxsign.local_matrix @ scale_matrix
 
-        jukeboxsign.rotate_y(math.radians(180))
-        jukeboxsign.set_position([1.95, 1.5, 14.5]) # Aumentei a coordenada Y para subir o neon
-        self.static_scene.add(jukeboxsign)
+        self.jukeboxsign.rotate_y(math.radians(180))
+        self.jukeboxsign.set_position([1.95, 1.5, 15]) # Aumentei a coordenada Y para subir o neon
+        self.static_scene.add(self.jukeboxsign)
 
+        #sign
+        sign_geo = CustomGeometry(1,1,1,my_obj_reader('objects/sign.obj')).get("girl")
+        sign_material = SurfaceMaterial(property_dict={"baseColor":[0.2,0,0.8]},)
+        self.sign=Mesh(geometry=sign_geo,material=sign_material)
+        self.sign2=Mesh(geometry=sign_geo,material=sign_material)
+        self.sign.set_position([-10,0,-15])
+        self.sign2.rotate_y(math.radians(180))
+        self.sign2.set_position([9,0,-15])
+        self.static_scene.add(self.sign)
+        self.static_scene.add(self.sign2)
+
+
+    
         #Jukebox
         wood_geo, neon_geo, metal_geo, red_geo, metalmesh_geo, selectcoin_geo, selectsong_geo, vinyl_geo, songs1_geo, songs2_geo, glass_geo = JukeboxGeometry(1,1,1,my_obj_reader('objects/jukebox.obj'))
         wood_material = LambertMaterial(
@@ -1362,7 +1376,11 @@ class Example(Base):
         self.glow_scene.add(exitsign)
 
         #jukebox sign
-        self.glow_scene.add(jukeboxsign)
+        self.glow_scene.add(self.jukeboxsign)
+
+        #sign
+        self.glow_scene.add(self.sign)
+        self.glow_scene.add(self.sign2)
 
         #spotlight
         self.glow_scene.add(self.light)
@@ -1374,7 +1392,7 @@ class Example(Base):
         self.glow_scene.add(glowingMirrorBall)
 
         #Mesh
-        sonicglow_material = SurfaceMaterial(property_dict={"baseColor": [0.2, 0.2, 0.2]})
+        sonicglow_material = SurfaceMaterial(property_dict={"baseColor": [0.1, 0.1, 0.1]})
         sonic_glow = Mesh(sonic_geometry,sonicglow_material)
         sonic_glow.local_matrix = self.sprite.local_matrix
         self.glow_scene.add(sonic_glow)
@@ -2237,6 +2255,8 @@ class Example(Base):
         # Update neon color using set_properties instead of creating new material
         rainbow_color = self.get_rainbow_color(self.time)
         self.neon.material.set_properties(property_dict={"baseColor": rainbow_color})
+        self.sign.material.set_properties(property_dict={"baseColor": rainbow_color})
+        self.sign2.material.set_properties(property_dict={"baseColor": rainbow_color})
         
         #NeonSign Update
         blink_interval = 1.0  # seconds
@@ -2249,6 +2269,7 @@ class Example(Base):
             self.dancefloor_color2.material.set_properties(property_dict={"baseColor": [0.1,0.1,0.1]})
             self.blueSign.material.set_properties(property_dict={"baseColor": [0.2,0.2,1]})
             self.yellowSign.material.set_properties(property_dict={"baseColor": [0,0,0]})
+            self.jukeboxsign.material.set_properties(property_dict={"baseColor": [1,0.1,0.1]})
         else:
             # Yellow ON, Blue OFF
             next_glow = self.yellowSign
@@ -2257,6 +2278,7 @@ class Example(Base):
             self.yellowSign.material.set_properties(property_dict={"baseColor": [0.8,0.8,1]})
             self.dancefloor_color1.material.set_properties(property_dict={"baseColor": [0.1,0.1,0.2]})
             self.dancefloor_color2.material.set_properties(property_dict={"baseColor": [0.8,0.8,0.8]})
+            self.jukeboxsign.material.set_properties(property_dict={"baseColor": [0.1,0,0]})
 
         # Reset glow scene and add the correct glowing mesh
         self.glow_scene.remove(self.current_glow)
