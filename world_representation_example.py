@@ -1121,6 +1121,7 @@ class Example(Base):
         wood_banjo_geo = banjo_geo.get("madeira")
         metal_banjo_geo = banjo_geo.get("branco")
         strings_banjo_geo = banjo_geo.get("cordas")
+        preto_banjo_geo = banjo_geo.get("preto")
         wood_banjo_material = PhongMaterial(
             property_dict={"baseColor": [0.2,0.1,0]},
             number_of_light_sources=self.light_number,
@@ -1132,18 +1133,20 @@ class Example(Base):
             use_shadow=True
         )
         strings_banjo_material = PhongMaterial(
-            property_dict={"baseColor": [0.8,0.8,0.8]},
+            property_dict={"baseColor": [0.5,0.5,0.5]},
             number_of_light_sources=self.light_number,
             use_shadow=True
         )
         wood_part = Mesh(geometry=wood_banjo_geo,material=wood_banjo_material)
         metal_part = Mesh(geometry=metal_banjo_geo,material=metal_banjo_material)
         banjo_strings = Mesh(geometry=strings_banjo_geo,material=strings_banjo_material)
+        banjo_preto = Mesh(geometry=preto_banjo_geo,material=black_mandolin_material)
         self.banjo = Object3D()
         self.banjo.add(wood_part)
         self.banjo.add(metal_part)
         self.banjo.add(banjo_strings)
-        self.banjo.set_position([0,1,-12])  # Positioned between mandolin (-2) and fiddle (2)
+        self.banjo.add(banjo_preto)
+        self.banjo.set_position([0,0.5,-13])  # Positioned between mandolin (-2) and fiddle (2)
         self.dynamic_scene.add(self.banjo)
         self.instruments.append({
             'object': self.banjo,
