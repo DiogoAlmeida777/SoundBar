@@ -185,6 +185,26 @@ class Example(Base):
         ]
         # Bottle collision system will be initialized in initialize() method
 
+        # Instrument animation parameters
+        self.instrument_animation_active = False     # becomes True when music plays
+        self.instrument_animation_speed = 0.3       # base speed (rad/s)
+        self.instrument_float_height = 0.2          # vertical "float" (m)
+        self.instrument_rotation_speed = 0.3        # smooth rotation (rad/s)
+        self.instrument_path_radius = 12.0          # circular path radius (m)
+        self.instrument_vertical_offset = 1.5       # average height from floor (m)
+        self.instrument_acceleration_time = 20.0    # seconds until full speed
+        self.instrument_animation_start_time = 0.0  # marked when music starts
+
+        # bar boundaries - instruments never leave these "virtual walls"
+        self.bar_bounds = {
+            'x_min': -14.0, 'x_max': 14.0,
+            'z_min': -14.0, 'z_max': 14.0,
+            'y_min': 0.5, 'y_max': 3.0
+        }
+
+        # list to store each instrument and animation metadata
+        self.instruments = []
+
     def _get_cached_texture(self, texture_path):
         """Get a cached texture or create and cache a new one"""
         if texture_path not in self._texture_cache:
@@ -1044,6 +1064,11 @@ class Example(Base):
         self.mandolin.add(mandolin_strings)
         self.mandolin.set_position([-2,0.5,-12])
         self.dynamic_scene.add(self.mandolin)
+        self.instruments.append({
+            'object': self.mandolin,
+            'base_position': [-2, self.instrument_vertical_offset, -12],
+            'phase_offset': 0.0
+        })
 
         fiddle_geo = CustomGeometry(1,1,1,my_obj_reader('objects/fiddle.obj'))
         wood_fiddle_geo = fiddle_geo.get("fiddle")
@@ -1063,6 +1088,11 @@ class Example(Base):
         self.fiddle.add(fiddle_strings)
         self.fiddle.set_position([2,0.5,-12])
         self.dynamic_scene.add(self.fiddle)
+        self.instruments.append({
+            'object': self.fiddle,
+            'base_position': [2, self.instrument_vertical_offset, -12],
+            'phase_offset': math.pi/2  # offset to vary movement
+        })
 
         harmonica_player_geo = CustomGeometry(1,1,1,my_obj_reader('objects/harmonicaplayer.obj'))
         harmonica_wood_geo = harmonica_player_geo.get("Madeira")
@@ -1082,8 +1112,44 @@ class Example(Base):
         self.harmonica = Object3D()
         self.harmonica.add(harmonica_metal)
         self.harmonica.add(harmonica_wood)
-        self.harmonica.set_position([0, 1.5, -10])  # Adjusted position to be at mouth level
+        self.harmonica.set_position([0, 1.5, -10])
         self.dynamic_scene.add(self.harmonica)
+        # Removed harmonica from instruments list since it should stay in place
+
+        # Banjo
+        banjo_geo = CustomGeometry(1.5,1.5,1.5,my_obj_reader('objects/banjo.obj'))  # Increased size by 1.5x
+        wood_banjo_geo = banjo_geo.get("madeira")
+        metal_banjo_geo = banjo_geo.get("branco")
+        strings_banjo_geo = banjo_geo.get("cordas")
+        wood_banjo_material = PhongMaterial(
+            property_dict={"baseColor": [0.2,0.1,0]},
+            number_of_light_sources=self.light_number,
+            use_shadow=True
+        )
+        metal_banjo_material = PhongMaterial(
+            property_dict={"baseColor": [0.8,0.8,0.8]},
+            number_of_light_sources=self.light_number,
+            use_shadow=True
+        )
+        strings_banjo_material = PhongMaterial(
+            property_dict={"baseColor": [0.8,0.8,0.8]},
+            number_of_light_sources=self.light_number,
+            use_shadow=True
+        )
+        wood_part = Mesh(geometry=wood_banjo_geo,material=wood_banjo_material)
+        metal_part = Mesh(geometry=metal_banjo_geo,material=metal_banjo_material)
+        banjo_strings = Mesh(geometry=strings_banjo_geo,material=strings_banjo_material)
+        self.banjo = Object3D()
+        self.banjo.add(wood_part)
+        self.banjo.add(metal_part)
+        self.banjo.add(banjo_strings)
+        self.banjo.set_position([0,1,-12])  # Positioned between mandolin (-2) and fiddle (2)
+        self.dynamic_scene.add(self.banjo)
+        self.instruments.append({
+            'object': self.banjo,
+            'base_position': [0, self.instrument_vertical_offset, -12],  # Updated base position
+            'phase_offset': math.pi/4  # different offset for varied movement
+        })
 
         harmonicaplayer_head_geo = harmonica_player_geo.get("Head")
         harmonicaplayer_body_geo = harmonica_player_geo.get("Body")
@@ -1605,6 +1671,58 @@ class Example(Base):
         # Remove expired notes
         for note in notes_to_remove:
             self.musical_notes.remove(note)
+
+        # ---------------------- INSTRUMENT ANIMATION -------------------
+        # Start when music is playing
+        if pygame.mixer.music.get_busy():
+            if not self.instrument_animation_active:
+                self.instrument_animation_active = True
+                self.instrument_animation_start_time = self.time
+
+            # acceleration progress (0→1) over self.instrument_acceleration_time
+            accel_progress = min(
+                1.0,
+                (self.time - self.instrument_animation_start_time) / self.instrument_acceleration_time
+            )
+
+            for inst in self.instruments:
+                # mix two angles for a more "organic" path
+                ang1 = self.time * self.instrument_animation_speed + inst['phase_offset']
+                ang2 = self.time * self.instrument_animation_speed * 0.5 + inst['phase_offset']*2
+
+                # combined circular in X/Z
+                x = (math.cos(ang1) + math.sin(ang2)) * self.instrument_path_radius * 0.5
+                z = (math.sin(ang1) + math.cos(ang2)) * self.instrument_path_radius * 0.5
+
+                # vertical "float"
+                y = self.instrument_float_height * math.sin(self.time*2 + inst['phase_offset'])
+
+                # apply bar boundaries
+                x = max(self.bar_bounds['x_min'], min(self.bar_bounds['x_max'], x))
+                z = max(self.bar_bounds['z_min'], min(self.bar_bounds['z_max'], z))
+                y = max(self.bar_bounds['y_min'], min(self.bar_bounds['y_max'],
+                                                     y + self.instrument_vertical_offset))
+
+                # interpolation for smooth acceleration
+                base = np.array(inst['base_position'])
+                target = np.array([x, y, z])
+                pos = base + (target - base)*accel_progress
+                inst['object'].set_position(pos)
+
+                # smooth rotations
+                rot_speed = self.instrument_rotation_speed * accel_progress
+                inst['object'].rotate_y(rot_speed * self.delta_time)
+                inst['object'].rotate_x(math.sin(self.time + inst['phase_offset'])
+                                      * 0.1 * accel_progress)
+
+        else:
+            # Music stopped → return instruments to base pose
+            if self.instrument_animation_active:
+                self.instrument_animation_active = False
+                for inst in self.instruments:
+                    inst['object'].set_position(inst['base_position'])
+                    inst['object'].set_rotation([0,0,0])
+        # --------------------------------------------------------------------
 
         camera_position = self.camera.local_position
         self._cull_lights(camera_position)
