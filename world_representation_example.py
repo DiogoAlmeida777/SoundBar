@@ -1280,6 +1280,14 @@ class Example(Base):
             blend_strength=1.5
         )
         self.combo_pass.add_effect(self.brightness_effect)
+        self.combo_pass = Postprocessor(self.renderer, self.scene, self.camera)
+        # self.combo_pass.add_effect(self.tint)
+        self.combo_pass.add_effect(self.pixelate)
+        # self.combo_pass.add_effect(self.color_reduce)
+        self.combo_pass.add_effect(self.blur_h)
+        self.combo_pass.add_effect(self.blur_v)
+        self.combo_pass.add_effect(self.drunk_effect)
+        self.combo_pass.add_effect(self.brightness_effect)
 
         # HUD Scene
         self.show_menu = True
@@ -1287,96 +1295,6 @@ class Example(Base):
         pygame.mouse.set_visible(True)
         self.hudScene = Scene()
         self.hudCamera = Camera()
-        self.hudCamera.set_orthographic(0, 800, 0, 600, 1, -1)
-        
-        # Nova cena HUD para mensagens contextuais
-        self.context_hud = Scene()
-        self.context_camera = Camera()
-        self.context_camera.set_orthographic(0, 800, 0, 600, 1, -1)
-        self.context_label = None
-        
-        # Texto de interação com a jukebox
-        jukebox_label_geo = RectangleGeometry(
-            width=400, height=60, 
-            position=[400, 100], alignment=[0.5, 0]
-        )
-        text_texture = TextTexture(
-            text="Pressiona E para interagir com a jukebox",
-            system_font_name="Arial",
-            font_size=32,
-            font_color=(255, 255, 255),
-            background_color=(0, 0, 0, 128),
-            transparent=True
-        )
-        text_material = TextureMaterial(text_texture)
-        self.jukebox_prompt = Mesh(jukebox_label_geo, text_material)
-        
-        # Label Bar Simulator
-        labelGeo1 = RectangleGeometry(width=600, height=80, position=[0,600], alignment=[0,1])
-        labelMat1 = TextureMaterial(Texture("images/Bar Simulator.png"))
-        label1 = Mesh(labelGeo1, labelMat1)
-        
-        # Adiciona o label à HUD scene
-        self.hudScene.add(label1)  # Adiciona apenas o label
-        
-        # Create HUD render target and postprocessor
-        self.hud_target = RenderTarget(resolution=[800, 600])
-        self.hud_pass = Postprocessor(self.renderer, self.hudScene, self.hudCamera, self.hud_target)
-        
-        # Create final pass to compose HUD over the scene
-        self.final_pass = Postprocessor(self.renderer, self.scene, self.camera)
-        self.final_pass.add_effect(
-            additiveBlendEffect(
-                blend_texture=self.hud_target.texture,
-                original_strength=1.0,
-                blend_strength=1.0
-            )
-        )
-        
-        # Create HUD render target and postprocessor
-        glow_target = RenderTarget(resolution=[400, 300])  # Reduced resolution for better performance
-        #labelGeo1 = RectangleGeometry(width=600,height=80,position=[0,600],alignment=[0,1])
-        #labelMat1 = TextureMaterial (Texture("images/Bar Simulator.png"))
-        #label1 = Mesh(labelGeo1,labelMat1)
-        #self.hudScene.add(label1)
-
-        # === HUD da cerveja no jogo ===
-        self.beer_hud_scene = Scene()
-        self.beer_hud_camera = Camera()
-        self.beer_hud_camera.set_orthographic(0, self.screen_size[0], 0, self.screen_size[1], 1, -1)
-
-        self.beer_icon_textures = []
-        self.total_beer_frames = 12  # ou o número que tiveres
-        self.beers_drank = 0
-
-        for i in range(self.total_beer_frames):
-            texture = Texture(f"images/gif_frames/beer/frame_{i+1:03d}.png")
-            self.beer_icon_textures.append(texture)
-
-        beer_icon_geo = RectangleGeometry(width=300, height=300, position=[60, self.screen_size[1] - 60],
-                                          alignment=[0.5, 0.5])
-        beer_icon_mat = TextureMaterial(self.beer_icon_textures[0])
-        self.beer_icon_mesh = Mesh(beer_icon_geo, beer_icon_mat)
-        self.beer_hud_scene.add(self.beer_icon_mesh)
-
-        # Create player's BEER components but don't add to scene yet
-        BEER_MATERIAL = PhongMaterial(
-            property_dict={"baseColor":[0, 0.7, 0]},
-            number_of_light_sources=self.light_number,
-            use_shadow=True,
-            opacity=0.2
-        )
-        LIQUID_MATERIAL = self._get_cached_material(
-            "TransparentMaterial",
-            color=[0.3,0.3,0],
-            opacity=0.5
-        )
-        
-        # Create both bottle and liquid meshes for player's BEER
-        self.BEER = Mesh(geometry=self.bottle_geo, material=BEER_MATERIAL)
-        self.BEER_LIQUID = Mesh(geometry=self.liquid_geo, material=LIQUID_MATERIAL)  # Use the same liquid geometry as the shelf bottles
-        # Don't add to scene yet since player starts without beer
-        
         width, height = self.screen_size
         self.hudCamera.set_orthographic(0, width, 0, height, 1, -1)
 
@@ -1401,8 +1319,6 @@ class Example(Base):
         # Buttons
         self.menu_buttons = []
 
-        button_width = width * 0.325
-        button_height = height * 0.1
         center_x = width / 2
         button_specs = [
             ("Start Game", "start", [center_x, height * 0.6], "start_game"),
@@ -1428,6 +1344,8 @@ class Example(Base):
             ("back", "back", [center_x, height * 0.15], "back2"),
         ]
 
+
+
         self.brightness_buttons = []
 
         brightness_specs = [
@@ -1437,8 +1355,20 @@ class Example(Base):
             ("back", "back", [center_x, height * 0.15], "back3"),
         ]
 
+        self.jukebox_buttons = []
+
+        jukebox_specs = [
+            ("Play Song 1", "start", [center_x, height * 0.6], "play_song1"),
+            ("Play Song 2", "start", [center_x, height * 0.45], "play_song2"),
+            ("Play Song 3", "start", [center_x, height * 0.3], "play_song3"),
+            ("Close", "back", [center_x, height * 0.15], "close_jukebox")
+        ]
+
         for label, base_name, position, action in settings_specs:
             self.create_menu_button(base_name, position, action, self.settings_buttons, add_to_scene=False)
+
+        for label, base_name, position, action in jukebox_specs:
+            self.create_menu_button(base_name, position, action, self.jukebox_buttons, add_to_scene=False)
 
         for label, base_name, position, action in sensitivity_specs:
             self.create_menu_button(base_name, position, action, self.sensitivity_buttons, add_to_scene=False)
@@ -1465,6 +1395,67 @@ class Example(Base):
         self.bg_frame_rate = 8
         self.menu_bg_mesh = menu_bg_mesh
 
+        # Nova cena HUD para mensagens contextuais
+        self.context_hud = Scene()
+        self.context_camera = Camera()
+        self.context_camera.set_orthographic(0, width, 0, height, 1, -1)
+        self.context_label = None
+
+        # === HUD da cerveja no jogo ===
+        self.beer_hud_scene = Scene()
+        self.beer_hud_camera = Camera()
+        self.beer_hud_camera.set_orthographic(0, self.screen_size[0], 0, self.screen_size[1], 1, -1)
+
+        self.beer_icon_textures = []
+        self.total_beer_frames = 12  # ou o número que tiveres
+        self.beers_drank = 0
+
+        for i in range(self.total_beer_frames):
+            texture = Texture(f"images/gif_frames/beer/frame_{i + 1:03d}.png")
+            self.beer_icon_textures.append(texture)
+
+        beer_icon_geo = RectangleGeometry(width=300, height=300, position=[60, self.screen_size[1] - 60],
+                                          alignment=[0.5, 0.5])
+        beer_icon_mat = TextureMaterial(self.beer_icon_textures[0])
+        self.beer_icon_mesh = Mesh(beer_icon_geo, beer_icon_mat)
+        self.beer_hud_scene.add(self.beer_icon_mesh)
+
+        # Texto de interação com a jukebox
+        jukebox_label_geo = RectangleGeometry(
+            width=400, height=60,
+            position=[400, 100], alignment=[0.5, 0]
+        )
+        text_texture = TextTexture(
+            text="Pressiona E para interagir com a jukebox",
+            system_font_name="Arial",
+            font_size=32,
+            font_color=(255, 255, 255),
+            background_color=(0, 0, 0, 128),
+            transparent=True
+        )
+        text_material = TextureMaterial(text_texture)
+        self.jukebox_prompt = Mesh(jukebox_label_geo, text_material)
+
+
+        # Create player's BEER components but don't add to scene yet
+        BEER_MATERIAL = PhongMaterial(
+            property_dict={"baseColor":[0, 0.7, 0]},
+            number_of_light_sources=self.light_number,
+            use_shadow=True,
+            opacity=0.2
+        )
+        LIQUID_MATERIAL = self._get_cached_material(
+            "TransparentMaterial",
+            color=[0.3,0.3,0],
+            opacity=0.5
+        )
+        
+        # Create both bottle and liquid meshes for player's BEER
+        self.BEER = Mesh(geometry=self.bottle_geo, material=BEER_MATERIAL)
+        self.BEER_LIQUID = Mesh(geometry=self.liquid_geo, material=LIQUID_MATERIAL)  # Use the same liquid geometry as the shelf bottles
+        # Don't add to scene yet since player starts without beer
+
+
         # Add a list to store spawned beers
         self.spawned_beers = []
         
@@ -1485,8 +1476,7 @@ class Example(Base):
             pygame.time.delay(100) # Para evitar double clicks
             if action == "start_game":
                 self.show_menu = False
-                if self.menu_bg_mesh in self.hudScene._children_list:
-                    self.hudScene.remove(self.menu_bg_mesh)
+                pygame.mouse.set_visible(False)
             elif action == "open_settings":
                 self.handle_menu_change("settings", self.settings_buttons, self.menu_buttons)
             elif action == "exit_game":
@@ -1524,6 +1514,26 @@ class Example(Base):
                 self.input.set_mouse_sensitivity(0.5)
                 self.brightness = 2
                 self.show_menu = False
+            elif action == "play_song1":
+                pygame.mixer.music.load("sounds/song1.mp3")
+                pygame.mixer.music.play()
+                self.song_playing = True
+                self.show_menu = False
+            elif action == "play_song2":
+                # pygame.mixer.music.load("sounds/song2.mp3")
+                pygame.mixer.music.play()
+                self.song_playing = True
+                self.show_menu = False
+            elif action == "play_song3":
+                # pygame.mixer.music.load("sounds/song3.mp3")
+                pygame.mixer.music.play()
+                self.song_playing = True
+                self.show_menu = False
+            elif action == "close_jukebox":
+                self.jukebox_menu_active = False
+                pygame.mixer.music.stop()
+                self.song_playing = False
+                self.show_menu = False
         except Exception as e:
             print(f"Error handling button action '{action}': {e}")
             return
@@ -1543,71 +1553,9 @@ class Example(Base):
 
         button_list.append((mesh, tex_normal, tex_hover, action, position, width, height))
 
-    def create_jukebox_menu(self):
-        self.jukebox_buttons.clear()
-        center_x = self.screen_size[0] / 2
-        center_y = self.screen_size[1] / 2
-        
-        # Create background for jukebox menu (same as main menu)
-        width, height = self.screen_size
-        menu_bg = RectangleGeometry(width=width, height=height, position=[width / 2, height / 2], alignment=[0.5, 0.5])
-        bg_texture = Texture("images/bar-background-menu.gif")
-        self.jukebox_bg_mesh = Mesh(menu_bg, TextureMaterial(bg_texture))
-        self.jukebox_bg_mesh.set_position([0, 0, 0.1])
-        self.hudScene.add(self.jukebox_bg_mesh)
-        
-        # Create button geometries with same style as main menu
-        button_width = self.screen_size[0] * 0.325
-        button_height = self.screen_size[1] * 0.1
-        button_specs = [
-            ("Play Song 1", "start", [center_x, center_y + 60], "play_song1"),
-            ("Play Song 2", "start", [center_x, center_y], "play_song2"),
-            ("Play Song 3", "start", [center_x, center_y - 60], "play_song3"),
-            ("Close", "back", [center_x, center_y - 130], "close_jukebox")
-        ]
 
-        for label, base_name, position, action in button_specs:
-            # Create button geometry
-            geo = RectangleGeometry(
-                width=button_width,
-                height=button_height,
-                position=position,
-                alignment=[0.5, 0.5]
-            )
-            
-            # Create textures for normal and hover states
-            tex_normal = Texture(f"images/buttons/{base_name}.png")
-            tex_hover = Texture(f"images/buttons/{base_name}_hover.png")
-            
-            # Create mesh with normal texture
-            mesh = Mesh(geo, TextureMaterial(tex_normal))
-            self.hudScene.add(mesh)
-            
-            # Add to buttons list
-            self.jukebox_buttons.append((mesh, tex_normal, tex_hover, action, position, button_width, button_height))
 
-    def handle_jukebox_action(self, action):
-        if action == "play_song1":
-            pygame.mixer.music.load("sounds/song1.mp3")
-            pygame.mixer.music.play()
-            self.song_playing = True
-        elif action == "play_song2":
-            pygame.mixer.music.load("sounds/song2.mp3")
-            pygame.mixer.music.play()
-            self.song_playing = True
-        elif action == "play_song3":
-            pygame.mixer.music.load("sounds/song3.mp3")
-            pygame.mixer.music.play()
-            self.song_playing = True
-        elif action == "close_jukebox":
-            self.jukebox_menu_active = False
-            pygame.mixer.music.stop()
-            self.song_playing = False
-            for mesh, *_ in self.jukebox_buttons:
-                self.hudScene.remove(mesh)
-            if hasattr(self, 'jukebox_bg_mesh') and self.jukebox_bg_mesh in self.hudScene._children_list:
-                self.hudScene.remove(self.jukebox_bg_mesh)
-            self.jukebox_buttons.clear()
+
 
     def update(self):
         # Update camera position for light culling
@@ -1804,37 +1752,11 @@ class Example(Base):
                 
             # Handle jukebox menu activation
             if self.input.is_key_pressed("e") and not self.jukebox_menu_active and not self.show_menu:
-                self.close_all_menus()
-                self.jukebox_menu_active = True
-                self.create_jukebox_menu()
+                pygame.mouse.set_visible(True)
+                self.show_menu = True
+                self.menu_state = "jukebox"
+                self.handle_menu_change("jukebox", self.jukebox_buttons, self.menu_buttons)
 
-        else:
-            if self.jukebox_prompt in self.context_hud._children_list:
-                self.context_hud.remove(self.jukebox_prompt)
-
-        # Handle jukebox menu interaction
-        if self.jukebox_menu_active:
-            mx, my = pygame.mouse.get_pos()
-            my = self.screen_size[1] - my
-
-            # Update background animation
-            frame_index = int(self.time * self.bg_frame_rate) % self.num_bg_frames
-            self.jukebox_bg_mesh.material = TextureMaterial(self.bg_textures[frame_index])
-
-            for mesh, tex_normal, tex_hover, action, position, width, height in self.jukebox_buttons:
-                center_x, center_y = position
-                left = center_x - width // 2
-                right = center_x + width // 2
-                top = center_y - height // 2
-                bottom = center_y + height // 2
-                hovered = left <= mx <= right and top <= my <= bottom
-
-                if hovered:
-                    mesh.material = TextureMaterial(tex_hover)
-                    if self.input.is_mouse_button_pressed(0):
-                        self.handle_jukebox_action(action)
-                else:
-                    mesh.material = TextureMaterial(tex_normal)
 
         # Só atualiza a câmera se nenhum menu estiver aberto
         if not self.jukebox_menu_active and not self.show_menu:
@@ -1843,13 +1765,6 @@ class Example(Base):
         self.head.look_at(self.camera.global_position)
         self.head.rotate_y(math.radians(180))
 
-        # === Controlo global do rato e input ===
-        if self.jukebox_menu_active or self.show_menu:
-            pygame.mouse.set_visible(True)
-            pygame.event.set_grab(False)  # Liberta o rato
-        else:
-            pygame.mouse.set_visible(False)
-            pygame.event.set_grab(True)  # Trava o rato para o jogo
 
         # Update dynamic objects
         speed = 0.5
@@ -1981,18 +1896,9 @@ class Example(Base):
         self._update_light_uniforms()
 
         if self.input.is_key_down("escape"):
-            # Fechar jukebox primeiro, se estiver ativa
-            if self.jukebox_menu_active:
-                self.jukebox_menu_active = False
-                pygame.mouse.set_visible(False)
-                for mesh, *_ in self.jukebox_buttons:
-                    self.hudScene.remove(mesh)
-                self.jukebox_buttons.clear()
-
-            # Tratar o menu principal
-            elif self.show_menu:
+            if self.show_menu:
                 if self.menu_state == "main":
-                    self.show_menu = False
+                    self.show_menu = not self.show_menu
                     pygame.mouse.set_visible(False)
                 elif self.menu_state == "settings":
                     self.handle_menu_change("main", self.menu_buttons, self.settings_buttons)
@@ -2000,19 +1906,13 @@ class Example(Base):
                     self.handle_menu_change("settings", self.settings_buttons, self.sensitivity_buttons)
                 elif self.menu_state == "brightness":
                     self.handle_menu_change("settings", self.settings_buttons, self.brightness_buttons)
-
-            else:
-                # Abrir o menu principal se nada mais estiver aberto
+                elif self.menu_state == "jukebox":
+                    self.show_menu = not self.show_menu
+                    pygame.mouse.set_visible(False)
+            if not self.show_menu:
                 self.show_menu = True
-                self.menu_state = "main"
                 pygame.mouse.set_visible(True)
-                if self.menu_bg_mesh not in self.hudScene._children_list:
-                    self.hudScene.add(self.menu_bg_mesh)
-                for mesh, *_ in self.menu_buttons:
-                    if mesh not in self.hudScene._children_list:
-                        self.hudScene.add(mesh)
 
-        menu_rendered = False
 
         #Menu
         if self.show_menu:
@@ -2027,6 +1927,8 @@ class Example(Base):
                 button_list = self.sensitivity_buttons
             elif self.menu_state == "brightness":
                 button_list = self.brightness_buttons
+            elif self.menu_state == "jukebox":
+                button_list = self.jukebox_buttons
             else:
                 button_list = []
 
@@ -2050,7 +1952,6 @@ class Example(Base):
             frame_index = int(self.time * self.bg_frame_rate) % self.num_bg_frames
             self.menu_bg_mesh.material = TextureMaterial(self.bg_textures[frame_index])
             self.renderer.render(self.hudScene, self.hudCamera, clear_color=False)
-            menu_rendered = True
         else:
             pygame.mouse.set_visible(False)
         
@@ -2214,26 +2115,14 @@ class Example(Base):
         self.update_glass_fragments()
 
         self.glow_pass.render()
-        if self.show_menu:
-            self.hud_pass.render()
-            self.final_pass.render()  # HUD do menu principal
-        else:
-            self.combo_pass.render()  # Renderização normal do jogo
         
-        # Renderizar o HUD contextual por último
         self.renderer.render(self.context_hud, self.context_camera, clear_color=False)
 
         # Renderiza HUD do menu principal ou jukebox consoante o estado
-        if self.jukebox_menu_active or self.show_menu:
+        if self.show_menu:
             self.renderer.render(self.hudScene, self.hudCamera, clear_color=False)
 
-        # === Controlo global do rato e input ===
-        if self.jukebox_menu_active or self.show_menu:
-            pygame.mouse.set_visible(True)
-            pygame.event.set_grab(False)  # Liberta o rato
-        else:
-            pygame.mouse.set_visible(False)
-            pygame.event.set_grab(True)  # Trava o rato para o jogo
+
 
     def close_all_menus(self):
         self.show_menu = False
