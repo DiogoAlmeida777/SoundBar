@@ -166,6 +166,10 @@ class Example(Base):
         self.jukebox_position = [0, 0, 14.5]  # Posição da jukebox
         self.jukebox_interaction_distance = 3.0  # Distância de interação
         self.show_interaction_prompt = False
+
+        self.bar_position = [-10,0,12]  # Posição da jukebox
+        self.bar_interaction_distance = 3.0  # Distância de interação
+        self.show_interaction_prompt2 = False
         
         # Initialize pygame font
         pygame.font.init()
@@ -1593,7 +1597,22 @@ class Example(Base):
             transparent=True
         )
         text_material = TextureMaterial(text_texture)
+
+        bar_label_geo = RectangleGeometry(
+            width=650, height=80,
+            position=[750, 400], alignment=[0.5, 0]
+        )
+        text_texture2 = TextTexture(
+            text="Pressiona ESPAÇO para pedir uma cerveja",
+            system_font_name="Arial",
+            font_size=32,
+            font_color=(255, 255, 255),
+            background_color=(0, 0, 0, 128),
+            transparent=True
+        )
+        text_material2 = TextureMaterial(text_texture2)
         self.jukebox_prompt = Mesh(jukebox_label_geo, text_material)
+        self.bar_prompt = Mesh(bar_label_geo, text_material2)
 
 
         # Create player's BEER components but don't add to scene yet
@@ -1979,9 +1998,11 @@ class Example(Base):
         
         # Check distance to jukebox using player position
         distance_to_jukebox = np.linalg.norm(np.array(player_position) - np.array(self.jukebox_position))
+        distance_to_bar = np.linalg.norm(np.array(player_position) - np.array(self.bar_position))
         
         # Handle jukebox interaction
         self.show_interaction_prompt = distance_to_jukebox < self.jukebox_interaction_distance
+        self.show_interaction_prompt2 = distance_to_bar < self.bar_interaction_distance
         
         # Mostrar ou esconder a mensagem de interação dinamicamente
         if self.show_interaction_prompt:
@@ -2000,6 +2021,13 @@ class Example(Base):
                 self.context_hud.remove(self.jukebox_prompt)
             self.show_interaction_prompt = False
 
+        if self.show_interaction_prompt2:
+            if self.bar_prompt not in self.context_hud._children_list:
+                self.context_hud.add(self.bar_prompt)
+        else:
+            if self.bar_prompt in self.context_hud._children_list:
+                self.context_hud.remove(self.bar_prompt)
+            self.show_interaction_prompt2 = False
         # Só atualiza a câmera se nenhum menu estiver aberto
         if not self.jukebox_menu_active and not self.show_menu:
             self.rig.update(self.input, self.delta_time)
