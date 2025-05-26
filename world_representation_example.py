@@ -87,6 +87,7 @@ class Example(Base):
         self.stepping_channel = pygame.mixer.Channel(0)
 
         self.burp_sound = pygame.mixer.Sound("sounds/burp.mp3")
+        self.burp_sound.set_volume(0.03) # Diminuir o volume do som do arroto
         self.burp_channel = pygame.mixer.Channel(3)
 
         self.bottle_break_sound = pygame.mixer.Sound("sounds/bottle-break.mp3")
