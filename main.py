@@ -238,7 +238,7 @@ class Example(Base):
         # Game Over system
         self.game_over = False
         self.game_over_mesh = None
-        self.max_beers = 2  # Game over after 12 beers
+        self.max_beers = 12  # Game over after 12 beers
         
         # Game Over fall animation
         self.falling_animation_active = False
