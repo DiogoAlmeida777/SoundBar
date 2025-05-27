@@ -69,7 +69,7 @@ from geometry.geometry import Geometry
 from geometry.box import BoxGeometry
 from geometry.snooker_table import SnookerTableGeometry
 
-MAX_BEER_AMOUNT_PER_BOTTLE = 50
+MAX_BEER_AMOUNT_PER_BOTTLE = 20
 
 class Example(Base):
     """
@@ -88,7 +88,7 @@ class Example(Base):
         self.stepping_channel = pygame.mixer.Channel(0)
 
         self.burp_sound = pygame.mixer.Sound("sounds/burp.mp3")
-        self.burp_sound.set_volume(0.07) # Diminuir o volume do som do arroto
+        self.burp_sound.set_volume(0.2) # Diminuir o volume do som do arroto
         self.burp_channel = pygame.mixer.Channel(3)
 
         self.bottle_break_sound = pygame.mixer.Sound("sounds/bottle-break.mp3")
@@ -186,7 +186,7 @@ class Example(Base):
         self.note_lifetime = 2.0  # How long notes stay visible (seconds)
         self.note_rise_speed = 2.0  # How fast notes rise up
         self.note_spawn_timer = 0.0  # Timer for spawning new notes
-        self.note_spawn_interval = 0.8  # Time between note spawns (increased from 0.5 to 0.8)
+        self.note_spawn_interval = 0.3  # Time between note spawns (increased from 0.5 to 0.8)
         self.note_pool = []  # Pool of reusable note meshes
         self.max_notes = 20  # Maximum number of notes at once
         self.note_colors = [
@@ -1520,10 +1520,10 @@ class Example(Base):
         self.jukebox_buttons = []
 
         jukebox_specs = [
-            ("Play Song 1", "start", [center_x, height * 0.75], "play_song1"),
-            ("Play Song 2", "start", [center_x, height * 0.6], "play_song2"),
-            ("Play Song 3", "start", [center_x, height * 0.45], "play_song3"),
-            ("Play Song 4", "start", [center_x, height * 0.3], "play_song4"),
+            ("Play Song 1", "res_Banjo", [center_x, height * 0.75], "play_song1"),
+            ("Play Song 2", "res_Violino", [center_x, height * 0.6], "play_song2"),
+            ("Play Song 3", "res_Mandolin", [center_x, height * 0.45], "play_song3"),
+            ("Play Song 4", "res_Bateria", [center_x, height * 0.3], "play_song4"),
             ("Close", "back", [center_x, height * 0.15], "close_jukebox")
         ]
 
@@ -1700,24 +1700,28 @@ class Example(Base):
                 self.show_menu = False
             elif action == "play_song1":
                 pygame.mixer.music.load("sounds/banjo.mp3")
+                pygame.mixer.music.set_volume(0.5)
                 pygame.mixer.music.play()
                 self.song_playing = True
                 self.handle_menu_change("main", self.menu_buttons, self.jukebox_buttons)
                 self.show_menu = False
             elif action == "play_song2":
                 pygame.mixer.music.load("sounds/fiddle.mp3")
+                pygame.mixer.music.set_volume(0.5)
                 pygame.mixer.music.play()
                 self.song_playing = True
                 self.handle_menu_change("main", self.menu_buttons, self.jukebox_buttons)
                 self.show_menu = False
             elif action == "play_song3":
                 pygame.mixer.music.load("sounds/mandolin.mp3")
+                pygame.mixer.music.set_volume(0.5)
                 pygame.mixer.music.play()
                 self.song_playing = True
                 self.handle_menu_change("main", self.menu_buttons, self.jukebox_buttons)
                 self.show_menu = False
             elif action == "play_song4":
                 pygame.mixer.music.load("sounds/bateria.mp3")
+                pygame.mixer.music.set_volume(0.5)
                 pygame.mixer.music.play()
                 self.song_playing = True
                 self.handle_menu_change("main", self.menu_buttons, self.jukebox_buttons)
@@ -1834,6 +1838,7 @@ class Example(Base):
         # Play harmonica as background music when no other music is playing
         if not pygame.mixer.music.get_busy() and not self.song_playing:
             pygame.mixer.music.load("sounds/harmonica.mp3")
+            pygame.mixer.music.set_volume(0.5)
             pygame.mixer.music.play(-1)  # -1 means loop indefinitely
 
         # Spawn new notes if we haven't reached max_notes
@@ -2105,7 +2110,6 @@ class Example(Base):
                     self.burp_channel.play(self.burp_sound)
                     self.beers_drank += 1
                 self.bottle_can_throw = True
-                print(f"Beers drank: {self.beers_drank}")
                 if self.beers_drank < 12:
                     self.DRUNKNESS = self.beers_drank
                     self.beer_icon_mesh.material = TextureMaterial(self.beer_icon_textures[self.beers_drank])
