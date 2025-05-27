@@ -1,4 +1,5 @@
 import os
+from time import sleep
 
 import numpy as np
 import math
@@ -93,6 +94,10 @@ class Example(Base):
 
         self.bottle_break_sound = pygame.mixer.Sound("sounds/bottle-break.mp3")
         self.bottle_break_channel = pygame.mixer.Channel(4)
+
+        self.body_fall_sound = pygame.mixer.Sound("sounds/body-fall.mp3")
+        self.body_fall_sound.set_volume(3)
+        self.body_fall_channel = pygame.mixer.Channel(5)
 
         self.DRUNKNESS = 0
         self.BEER_LEFT = MAX_BEER_AMOUNT_PER_BOTTLE
@@ -233,7 +238,16 @@ class Example(Base):
         # Game Over system
         self.game_over = False
         self.game_over_mesh = None
-        self.max_beers = 2  # Game over after 14 beers
+        self.max_beers = 13  # Game over after 13 beers
+        
+        # Game Over fall animation
+        self.falling_animation_active = False
+        self.fall_start_time = 0.0
+        self.fall_duration = 2.0  # Duration of fall animation in seconds
+        self.fall_start_position = None
+        self.fall_start_matrix = None  # Store the initial rig matrix
+        self.fall_target_y = 0.2  # Final Y position (close to ground)
+        self.fall_rotation_speed = 90  # Degrees per second for side tilt
 
     def _get_cached_texture(self, texture_path):
         """Get a cached texture or create and cache a new one"""
@@ -1675,6 +1689,15 @@ class Example(Base):
         self.beer_animation_time = 0
         self.beer_animation_duration = 1.0  # seconds
 
+        # Game Over fall animation
+        self.falling_animation_active = False
+        self.fall_start_time = 0.0
+        self.fall_duration = 2.0  # Duration of fall animation in seconds
+        self.fall_start_position = None
+        self.fall_start_matrix = None  # Store the initial rig matrix
+        self.fall_target_y = 0.2  # Final Y position (close to ground)
+        self.fall_rotation_speed = 90  # Degrees per second for side tilt
+
     def handle_menu_change(self, new_state, new_button_list, old_button_list):
         if self.menu_state == "settings" and new_state == "jukebox":
             old_button_list = self.settings_buttons
@@ -1801,6 +1824,62 @@ class Example(Base):
                 return
             # Render only the game over screen with black background
             self.renderer.render(self.context_hud, self.hudCamera, clear_color=[0, 0, 0])
+            return
+        
+        # Handle falling animation
+        if self.falling_animation_active:
+            elapsed_time = self.time - self.fall_start_time
+            progress = min(1.0, elapsed_time / self.fall_duration)
+            
+            # Smooth easing for fall animation (ease-in)
+            eased_progress = progress * progress
+            
+            # Calculate new position (falling down) - only move the rig
+            current_y = self.fall_start_position[1] + (self.fall_target_y - self.fall_start_position[1]) * eased_progress
+            new_position = [self.fall_start_position[0], current_y, self.fall_start_position[2]]
+            self.rig.set_position(new_position)
+            
+            # Calculate side tilt rotation (falling to the side)
+            max_tilt = math.radians(90)  # Maximum tilt angle (90 degrees to the side)
+            current_tilt = max_tilt * eased_progress
+            
+            # Apply rotation to the rig - falling to the side (roll rotation around Z axis)
+            # Start with the original rig matrix and modify only position and add fall rotation
+            original_matrix = np.copy(self.fall_start_matrix)
+            
+            # Update position in the matrix
+            original_matrix[0, 3] = new_position[0]
+            original_matrix[1, 3] = new_position[1] 
+            original_matrix[2, 3] = new_position[2]
+            
+            # Create fall rotation matrix (roll to the side)
+            fall_rotation = Matrix.make_rotation_z(current_tilt)
+            
+            # Apply fall rotation to the original orientation
+            self.rig.local_matrix = original_matrix @ fall_rotation
+            
+            # Check if animation is complete
+            if progress >= 1.0:
+                self.falling_animation_active = False
+                self.body_fall_channel.play(self.body_fall_sound)
+                
+                sleep(1.5)
+                # Play body fall sound when hitting the ground
+
+                self.game_over = True
+                # Add game over screen to HUD
+                if self.game_over_mesh not in self.context_hud._children_list:
+                    self.context_hud.add(self.game_over_mesh)
+                # Add instructions to HUD
+                if self.game_over_instructions not in self.context_hud._children_list:
+                    self.context_hud.add(self.game_over_instructions)
+                # Show mouse cursor
+                pygame.mouse.set_visible(True)
+            
+            # During fall animation, only render the scene (no HUD updates)
+            self.glow_pass.render()
+            self.combo_pass.render()
+            self.renderer.render(self.beer_hud_scene, self.beer_hud_camera, clear_color=False)
             return
         
         # Check for P key press to play Song 1
@@ -2157,18 +2236,15 @@ class Example(Base):
                     
                     # Check for Game Over
                     if self.beers_drank >= self.max_beers:
-                        self.game_over = True
-                        # Add game over screen to HUD
-                        if self.game_over_mesh not in self.context_hud._children_list:
-                            self.context_hud.add(self.game_over_mesh)
-                        # Add instructions to HUD
-                        if self.game_over_instructions not in self.context_hud._children_list:
-                            self.context_hud.add(self.game_over_instructions)
-                        # Stop all music and sounds
-                        pygame.mixer.music.stop()
-                        self.song_playing = False
-                        # Show mouse cursor
-                        pygame.mouse.set_visible(True)
+                        # Start fall animation instead of immediate game over
+                        if not self.falling_animation_active:
+                            self.falling_animation_active = True
+                            self.fall_start_time = self.time
+                            self.fall_start_position = np.array(self.rig.local_position)
+                            self.fall_start_matrix = self.rig.local_matrix
+                            # Stop all music and sounds
+                            pygame.mixer.music.stop()
+                            self.song_playing = False
                         
                 self.bottle_can_throw = True
                 if self.beers_drank < 12:
@@ -2928,6 +3004,9 @@ class Example(Base):
         
         # Reset player position to starting position
         self.rig.set_position([11.5, 1.5, 14])
+        
+        # Reset rig orientation completely (remove any rotation from fall animation)
+        self.rig.local_matrix = Matrix.make_translation(11.5, 1.5, 14)
         
         # Clear glass fragments
         for fragment in self.glass_fragments:
