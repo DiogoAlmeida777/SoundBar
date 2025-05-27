@@ -238,7 +238,7 @@ class Example(Base):
         # Game Over system
         self.game_over = False
         self.game_over_mesh = None
-        self.max_beers = 13  # Game over after 13 beers
+        self.max_beers = 2  # Game over after 12 beers
         
         # Game Over fall animation
         self.falling_animation_active = False
@@ -1859,7 +1859,10 @@ class Example(Base):
             self.rig.local_matrix = original_matrix @ fall_rotation
             
             # Check if animation is complete
-            if progress >= 1.0:
+            if progress >= 1.0: 
+                if self.bar_prompt in self.context_hud._children_list:
+                    self.context_hud.remove(self.bar_prompt)
+    
                 self.falling_animation_active = False
                 self.body_fall_channel.play(self.body_fall_sound)
                 
@@ -2245,6 +2248,13 @@ class Example(Base):
                             # Stop all music and sounds
                             pygame.mixer.music.stop()
                             self.song_playing = False
+                            
+                            # Remove beer bottle and liquid from scene when falling
+                            if self.BEER in self.dynamic_scene._children_list:
+                                self.dynamic_scene.remove(self.BEER)
+                            if self.BEER_LIQUID in self.dynamic_scene._children_list:
+                                self.dynamic_scene.remove(self.BEER_LIQUID)
+                            self.hasBeer = False
                         
                 self.bottle_can_throw = True
                 if self.beers_drank < 12:
