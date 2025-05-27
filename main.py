@@ -230,6 +230,11 @@ class Example(Base):
         self.chair_animation_start_time = 0
         self.flying_chairs = []  # List to store flying chair objects
 
+        # Game Over system
+        self.game_over = False
+        self.game_over_mesh = None
+        self.max_beers = 2  # Game over after 14 beers
+
     def _get_cached_texture(self, texture_path):
         """Get a cached texture or create and cache a new one"""
         if texture_path not in self._texture_cache:
@@ -1614,6 +1619,34 @@ class Example(Base):
         self.jukebox_prompt = Mesh(jukebox_label_geo, text_material)
         self.bar_prompt = Mesh(bar_label_geo, text_material2)
 
+        # Create Game Over screen
+        game_over_geo = RectangleGeometry(
+            width=self.screen_size[0], 
+            height=self.screen_size[1],
+            position=[self.screen_size[0]//2, self.screen_size[1]//2], 
+            alignment=[0.5, 0.5]
+        )
+        game_over_texture = Texture("images/gameover.png")
+        game_over_material = TextureMaterial(game_over_texture)
+        self.game_over_mesh = Mesh(game_over_geo, game_over_material)
+        
+        # Create Game Over instructions text
+        instructions_geo = RectangleGeometry(
+            width=800, height=120,
+            position=[self.screen_size[0]//2, self.screen_size[1]//2 - 200], 
+            alignment=[0.5, 0.5]
+        )
+        instructions_texture = TextTexture(
+            text="Pressiona R para reiniciar ou ESC para sair",
+            system_font_name="Arial",
+            font_size=48,
+            font_color=(255, 255, 255),
+            background_color=(0, 0, 0, 180),
+            transparent=True
+        )
+        instructions_material = TextureMaterial(instructions_texture)
+        self.game_over_instructions = Mesh(instructions_geo, instructions_material)
+        # Don't add to scene yet - only show when game over occurs
 
         # Create player's BEER components but don't add to scene yet
         BEER_MATERIAL = PhongMaterial(
@@ -1756,7 +1789,19 @@ class Example(Base):
 
 
     def update(self):
-        
+        # Check for Game Over - block all input and movement during Game Over
+        if self.game_over:
+            # Allow ESC to exit the game or R to restart
+            if self.input.is_key_pressed("escape"):
+                pygame.quit()
+                exit(0)
+            elif self.input.is_key_pressed("r"):
+                # Restart the game
+                self.restart_game()
+                return
+            # Render only the game over screen with black background
+            self.renderer.render(self.context_hud, self.hudCamera, clear_color=[0, 0, 0])
+            return
         
         # Check for P key press to play Song 1
         keys = pygame.key.get_pressed()
@@ -2109,11 +2154,31 @@ class Example(Base):
                     self.dynamic_scene.remove(self.BEER_LIQUID)
                     self.burp_channel.play(self.burp_sound)
                     self.beers_drank += 1
+                    
+                    # Check for Game Over
+                    if self.beers_drank >= self.max_beers:
+                        self.game_over = True
+                        # Add game over screen to HUD
+                        if self.game_over_mesh not in self.context_hud._children_list:
+                            self.context_hud.add(self.game_over_mesh)
+                        # Add instructions to HUD
+                        if self.game_over_instructions not in self.context_hud._children_list:
+                            self.context_hud.add(self.game_over_instructions)
+                        # Stop all music and sounds
+                        pygame.mixer.music.stop()
+                        self.song_playing = False
+                        # Show mouse cursor
+                        pygame.mouse.set_visible(True)
+                        
                 self.bottle_can_throw = True
                 if self.beers_drank < 12:
                     self.DRUNKNESS = self.beers_drank
                     self.beer_icon_mesh.material = TextureMaterial(self.beer_icon_textures[self.beers_drank])
-                
+                elif self.beers_drank < self.max_beers:
+                    # Continue increasing drunkness beyond beer icon frames
+                    self.DRUNKNESS = self.beers_drank
+                    # Keep the last beer icon frame
+                    self.beer_icon_mesh.material = TextureMaterial(self.beer_icon_textures[11])
 
             # Handle bottle throwing when empty
             if self.bottle_can_throw and self.input.is_mouse_button_pressed(0):
@@ -2797,6 +2862,119 @@ class Example(Base):
         # Remove expired fragments
         for fragment in fragments_to_remove:
             self.glass_fragments.remove(fragment)
+
+    def restart_game(self):
+        """Restart the game by resetting all game state variables"""
+        # Reset game over state
+        self.game_over = False
+        
+        # Remove game over screen from HUD
+        if self.game_over_mesh in self.context_hud._children_list:
+            self.context_hud.remove(self.game_over_mesh)
+        
+        # Remove game over instructions from HUD
+        if self.game_over_instructions in self.context_hud._children_list:
+            self.context_hud.remove(self.game_over_instructions)
+        
+        # Reset beer and drunkness related variables
+        self.DRUNKNESS = 0
+        self.BEER_LEFT = MAX_BEER_AMOUNT_PER_BOTTLE
+        self.beers_drank = 0
+        self.hasBeer = False
+        
+        # Reset beer icon to first frame
+        self.beer_icon_mesh.material = TextureMaterial(self.beer_icon_textures[0])
+        
+        # Remove player's beer from scene if it exists
+        if self.BEER in self.dynamic_scene._children_list:
+            self.dynamic_scene.remove(self.BEER)
+        if self.BEER_LIQUID in self.dynamic_scene._children_list:
+            self.dynamic_scene.remove(self.BEER_LIQUID)
+        
+        # Reset beer animation states
+        self.beer_tilted = False
+        self.beer_can_tilt = True
+        self.tilt_towards_player = False
+        self.current_angle = 0
+        self.beer_animation_progress = 0.0
+        self.bottle_thrown = False
+        self.bottle_can_throw = False
+        self.bottle_velocity = np.array([0.0, 0.0, 0.0])
+        self.space_was_pressed = False
+        self.gulping_sound_playing = False
+        self.animating_beer = False
+        self.beer_animation_time = 0
+        
+        # Clear spawned beers
+        for beer_data in self.spawned_beers:
+            if beer_data['bottle'] in self.dynamic_scene._children_list:
+                self.dynamic_scene.remove(beer_data['bottle'])
+            if beer_data['liquid'] in self.dynamic_scene._children_list:
+                self.dynamic_scene.remove(beer_data['liquid'])
+        self.spawned_beers.clear()
+        
+        # Reset music and sound states
+        pygame.mixer.music.stop()
+        self.song_playing = False
+        if self.gulping_channel:
+            self.gulping_channel.stop()
+        
+        # Reset visual effects
+        self.pixelate.uniform_dict["pixelSize"].data = 0.01
+        self.blur_h.uniform_dict["blurRadius"].data = 0
+        self.blur_v.uniform_dict["blurRadius"].data = 0
+        self.drunk_effect.update_drunk_level(0.0)
+        self.color_reduce.uniform_dict["levels"].data = 256
+        
+        # Reset player position to starting position
+        self.rig.set_position([11.5, 1.5, 14])
+        
+        # Clear glass fragments
+        for fragment in self.glass_fragments:
+            if fragment['mesh'] in self.dynamic_scene._children_list:
+                self.dynamic_scene.remove(fragment['mesh'])
+        self.glass_fragments.clear()
+        
+        # Clear musical notes
+        for note in self.musical_notes:
+            if note['mesh'] in self.dynamic_scene._children_list:
+                self.dynamic_scene.remove(note['mesh'])
+        self.musical_notes.clear()
+        
+        # Reset instrument animations
+        self.instrument_animation_active = False
+        for inst in self.instruments:
+            inst['object'].set_position(inst['base_position'])
+            # Reset rotations
+            inst['object'].local_matrix = np.eye(4)
+            inst['object'].set_position(inst['base_position'])
+        
+        # Reset chair animations
+        self.chair_animation_active = False
+        for chair in self.flying_chairs:
+            if chair['cushion'] in self.dynamic_scene._children_list:
+                self.dynamic_scene.remove(chair['cushion'])
+            if chair['base'] in self.dynamic_scene._children_list:
+                self.dynamic_scene.remove(chair['base'])
+        self.flying_chairs.clear()
+        
+        # Reset bottles on shelf to full count
+        self.remaining_bottles = len(self.bottle_factory.positions)
+        
+        # Reset menu states
+        self.show_menu = False
+        self.jukebox_menu_active = False
+        pygame.mouse.set_visible(False)
+        
+        # Reset interaction prompts
+        self.show_interaction_prompt = False
+        self.show_interaction_prompt2 = False
+        if self.jukebox_prompt in self.context_hud._children_list:
+            self.context_hud.remove(self.jukebox_prompt)
+        if self.bar_prompt in self.context_hud._children_list:
+            self.context_hud.remove(self.bar_prompt)
+        
+        print("Game restarted! Press SPACE near the barman to get a beer.")
 
     def _setup_bottle_collision_objects(self):
         """Setup collision objects for bottle physics"""
